@@ -7,7 +7,7 @@ const Index = () => {
           <span className="animate-wave ml-4">👋</span>
         </h1>
         <p className="mt-6 text-lg text-muted-foreground">
-          Welcome to your new space
+          Welcome to out Hello site
         </p>
       </div>
     </div>
