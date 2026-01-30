@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Layers, CheckCircle, RotateCcw, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Layers, CheckCircle, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { flashCardSets } from '@/data/tests';
 import { useProgressStore } from '@/stores/progressStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FlashCardsTest = () => {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ const FlashCardsTest = () => {
   const [selectedSet, setSelectedSet] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [knownCards, setKnownCards] = useState<Set<string>>(new Set());
 
   const currentSet = flashCardSets.find(s => s.id === selectedSet);
@@ -37,18 +40,27 @@ const FlashCardsTest = () => {
     setSelectedSet(setId);
     setCurrentCardIndex(0);
     setIsFlipped(false);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
     setKnownCards(new Set());
   };
 
-  const handleFlip = () => {
-    setIsFlipped(!isFlipped);
-  };
-
-  const handleKnowIt = () => {
-    if (currentCard) {
-      setKnownCards(prev => new Set([...prev, currentCard.id]));
-      completeLesson(`test-flashcards-${currentCard.id}`);
-      handleNextCard();
+  const handleOptionClick = (optionIndex: number) => {
+    if (selectedAnswer !== null) return; // Already answered
+    
+    setSelectedAnswer(optionIndex);
+    const correct = optionIndex === currentCard?.correctIndex;
+    setIsCorrect(correct);
+    
+    if (correct) {
+      // Flip to show answer after a brief delay
+      setTimeout(() => {
+        setIsFlipped(true);
+        if (currentCard) {
+          setKnownCards(prev => new Set([...prev, currentCard.id]));
+          completeLesson(`test-flashcards-${currentCard.id}`);
+        }
+      }, 800);
     }
   };
 
@@ -58,6 +70,8 @@ const FlashCardsTest = () => {
     if (currentCardIndex < currentSet.cards.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
       setIsFlipped(false);
+      setSelectedAnswer(null);
+      setIsCorrect(null);
     } else {
       setSelectedSet(null);
     }
@@ -67,6 +81,8 @@ const FlashCardsTest = () => {
     if (currentCardIndex > 0) {
       setCurrentCardIndex(prev => prev - 1);
       setIsFlipped(false);
+      setSelectedAnswer(null);
+      setIsCorrect(null);
     }
   };
 
@@ -196,44 +212,111 @@ const FlashCardsTest = () => {
               exit={{ opacity: 0, scale: 0.9 }}
               className="perspective-1000"
             >
+              {/* Alert for feedback */}
+              <AnimatePresence>
+                {selectedAnswer !== null && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mb-4"
+                  >
+                    <Alert className={`border-2 ${isCorrect 
+                      ? 'bg-green-50 border-green-500 dark:bg-green-950/50' 
+                      : 'bg-red-50 border-red-500 dark:bg-red-950/50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCorrect ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        )}
+                        <AlertDescription className={`font-semibold ${isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                          {isCorrect 
+                            ? (isFrench ? '🎉 Bonne réponse!' : '🎉 Correct Answer!') 
+                            : (isFrench ? '❌ Mauvaise réponse, essaie encore!' : '❌ Wrong Answer, try again!')}
+                        </AlertDescription>
+                      </div>
+                    </Alert>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <motion.div
-                onClick={handleFlip}
-                className="relative w-full h-64 cursor-pointer"
+                className="relative w-full min-h-64"
                 animate={{ rotateY: isFlipped ? 180 : 0 }}
                 transition={{ duration: 0.6 }}
                 style={{ transformStyle: 'preserve-3d' }}
               >
-                {/* Front */}
+                {/* Front - Question with MCQ options */}
                 <div 
-                  className={`absolute inset-0 bg-gradient-to-br from-kiddykode-purple to-primary rounded-3xl p-8 flex items-center justify-center text-white shadow-xl ${
-                    isFlipped ? 'invisible' : ''
+                  className={`bg-gradient-to-br from-kiddykode-purple to-primary rounded-3xl p-6 text-white shadow-xl ${
+                    isFlipped ? 'invisible absolute inset-0' : ''
                   }`}
                   style={{ backfaceVisibility: 'hidden' }}
                 >
-                  <p className="text-xl font-semibold text-center">
+                  <p className="text-xl font-semibold text-center mb-6">
                     {isFrench ? currentCard.questionFr : currentCard.question}
                   </p>
+                  
+                  {/* MCQ Options */}
+                  <div className="grid gap-3">
+                    {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
+                      const isSelected = selectedAnswer === index;
+                      const isCorrectOption = index === currentCard.correctIndex;
+                      const showResult = selectedAnswer !== null;
+                      
+                      let optionClass = 'bg-white/20 hover:bg-white/30 border-transparent';
+                      if (showResult && isSelected) {
+                        optionClass = isCorrectOption 
+                          ? 'bg-green-500 border-green-300 ring-2 ring-green-300' 
+                          : 'bg-red-500 border-red-300 ring-2 ring-red-300 animate-shake';
+                      } else if (showResult && isCorrectOption && !isCorrect) {
+                        optionClass = 'bg-green-500/50 border-green-300';
+                      }
+                      
+                      return (
+                        <motion.button
+                          key={index}
+                          whileHover={selectedAnswer === null ? { scale: 1.02 } : {}}
+                          whileTap={selectedAnswer === null ? { scale: 0.98 } : {}}
+                          onClick={() => handleOptionClick(index)}
+                          disabled={selectedAnswer !== null && isCorrect}
+                          className={`w-full p-4 rounded-xl border-2 text-left font-medium transition-all duration-200 ${optionClass} ${
+                            selectedAnswer === null ? 'cursor-pointer' : isCorrect ? 'cursor-default' : 'cursor-pointer'
+                          }`}
+                        >
+                          <span className="flex items-center gap-3">
+                            <span className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center font-bold">
+                              {String.fromCharCode(65 + index)}
+                            </span>
+                            {option}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Back */}
+                {/* Back - Answer */}
                 <div 
-                  className={`absolute inset-0 bg-gradient-to-br from-kiddykode-green to-kiddykode-blue-light rounded-3xl p-8 flex items-center justify-center text-white shadow-xl ${
-                    !isFlipped ? 'invisible' : ''
+                  className={`bg-gradient-to-br from-kiddykode-green to-kiddykode-blue-light rounded-3xl p-8 flex flex-col items-center justify-center text-white shadow-xl min-h-64 ${
+                    !isFlipped ? 'invisible absolute inset-0' : ''
                   }`}
                   style={{ 
                     backfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)'
                   }}
                 >
+                  <CheckCircle className="w-16 h-16 mb-4 text-white/90" />
                   <p className="text-2xl font-bold text-center">
                     {isFrench ? currentCard.answerFr : currentCard.answer}
                   </p>
+                  <p className="text-white/80 mt-2">
+                    {isFrench ? '🎉 Excellent travail!' : '🎉 Great job!'}
+                  </p>
                 </div>
               </motion.div>
-
-              <p className="text-center text-muted-foreground text-sm mt-4">
-                {isFrench ? 'Clique pour retourner' : 'Click to flip'}
-              </p>
 
               <div className="flex gap-3 mt-6">
                 <Button
@@ -246,19 +329,10 @@ const FlashCardsTest = () => {
                   {isFrench ? 'Précédent' : 'Previous'}
                 </Button>
 
-                {isFlipped && (
-                  <Button
-                    onClick={handleKnowIt}
-                    className="flex-1 bg-kiddykode-green hover:bg-kiddykode-green/90 flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    {isFrench ? 'Je sais!' : 'I Know It!'}
-                  </Button>
-                )}
-
                 <Button
                   onClick={handleNextCard}
-                  className="flex items-center gap-2"
+                  disabled={!isFlipped}
+                  className="flex-1 flex items-center justify-center gap-2"
                 >
                   {currentCardIndex < (currentSet?.cards.length || 1) - 1 
                     ? (isFrench ? 'Suivant' : 'Next')
