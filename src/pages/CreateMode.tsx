@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download, Leaf, ArrowRight } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { sampleProjects } from '@/data/tutorials';
+import { ecoHelperProject } from '@/data/ecoHelperProject';
 import { useProgressStore } from '@/stores/progressStore';
 
 const CreateMode = () => {
@@ -191,6 +192,44 @@ print("I'm learning to code!")
         </div>
       </header>
 
+      {/* Guided Projects Section */}
+      <div className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 p-4 border-b border-green-200 dark:border-green-800">
+        <div className="container mx-auto">
+          <h3 className="font-bold text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
+            <Leaf className="w-5 h-5" />
+            {isFrench ? 'Projets Guidés' : 'Guided Projects'}
+          </h3>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/create/eco-helper')}
+            className="w-full md:w-auto flex items-center justify-between gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border-2 border-green-300 dark:border-green-700"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-white text-2xl">
+                🌍
+              </div>
+              <div className="text-left">
+                <h4 className="font-bold text-foreground">
+                  {isFrench ? ecoHelperProject.titleFr : ecoHelperProject.title}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {isFrench ? ecoHelperProject.subtitleFr : ecoHelperProject.subtitle}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">
+                    {isFrench ? 'Intermédiaire' : 'Intermediate'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {ecoHelperProject.estimatedTime}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-green-600 dark:text-green-400" />
+          </motion.button>
+        </div>
+      </div>
       {/* Toolbar */}
       <div className="bg-secondary p-3 flex flex-wrap gap-2">
         <motion.button
