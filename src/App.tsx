@@ -15,6 +15,7 @@ import DebuggingTest from "./pages/DebuggingTest";
 import FlashCardsTest from "./pages/FlashCardsTest";
 import MCQTest from "./pages/MCQTest";
 import CreateMode from "./pages/CreateMode";
+import EcoHelperProject from "./pages/EcoHelperProject";
 import StoryMode from "./pages/StoryMode";
 import ProgressPage from "./pages/ProgressPage";
 import ParentDashboard from "./pages/ParentDashboard";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/test/flashcards" element={<FlashCardsTest />} />
           <Route path="/test/mcq" element={<MCQTest />} />
           <Route path="/create" element={<CreateMode />} />
+          <Route path="/create/eco-helper" element={<EcoHelperProject />} />
           <Route path="/stories" element={<StoryMode />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/parent" element={<ParentDashboard />} />
