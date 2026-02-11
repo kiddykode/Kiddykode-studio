@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download, Leaf, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download, Leaf, ShoppingCart, ArrowRight } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { sampleProjects } from '@/data/tutorials';
 import { ecoHelperProject } from '@/data/ecoHelperProject';
+import { supermarketProject } from '@/data/supermarketProject';
 import { useProgressStore } from '@/stores/progressStore';
 
 const CreateMode = () => {
@@ -227,6 +228,37 @@ print("I'm learning to code!")
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-green-600 dark:text-green-400" />
+          </motion.button>
+
+          {/* Supermarket Project Card */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/create/supermarket')}
+            className="w-full md:w-auto flex items-center justify-between gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border-2 border-orange-300 dark:border-orange-700 mt-3"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center text-white text-2xl">
+                🛒
+              </div>
+              <div className="text-left">
+                <h4 className="font-bold text-foreground">
+                  {isFrench ? supermarketProject.titleFr : supermarketProject.title}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {isFrench ? supermarketProject.subtitleFr : supermarketProject.subtitle}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                    {isFrench ? 'Débutant' : 'Beginner'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {supermarketProject.estimatedTime}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-orange-600 dark:text-orange-400" />
           </motion.button>
         </div>
       </div>
