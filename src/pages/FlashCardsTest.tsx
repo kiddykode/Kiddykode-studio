@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+
 
 interface ShuffledCard {
   id: string;
@@ -328,35 +328,46 @@ const FlashCardsTest = () => {
     );
   }
 
+  const letterColors = [
+    'bg-[hsl(0_70%_65%)]',    // A - coral/red
+    'bg-kiddykode-green',      // B - green
+    'bg-[hsl(200_70%_55%)]',   // C - blue
+    'bg-kiddykode-yellow',     // D - yellow
+  ];
+
+  const letterTextColors = [
+    'text-[hsl(0_70%_65%)]',
+    'text-kiddykode-green',
+    'text-[hsl(200_70%_55%)]',
+    'text-kiddykode-yellow',
+  ];
+
   // Quiz screen
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-kiddykode-purple text-white p-4">
-        <div className="container mx-auto flex items-center gap-4">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSelectedSet(null)}
-            className="p-2 rounded-xl hover:bg-white/20 transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </motion.button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">
-              {isFrench ? currentSet?.titleFr : currentSet?.title}
-            </h1>
-            <Progress 
-              value={((currentCardIndex + 1) / shuffledCards.length) * 100} 
-              className="mt-2 h-2"
-            />
-          </div>
-          <span className="text-sm">
-            {currentCardIndex + 1} / {shuffledCards.length}
-          </span>
+    <div className="min-h-screen bg-[hsl(0_0%_33%)] flex flex-col">
+      {/* Top bar with back + progress */}
+      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setSelectedSet(null)}
+          className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </motion.button>
+        <div className="flex-1">
+          <Progress 
+            value={((currentCardIndex + 1) / shuffledCards.length) * 100} 
+            className="h-2 bg-white/20"
+          />
         </div>
-      </header>
+        <span className="text-white/70 text-sm font-bold">
+          {currentCardIndex + 1}/{shuffledCards.length}
+        </span>
+      </div>
 
-      <section className="container mx-auto px-4 py-8 max-w-2xl">
+      {/* Main content area */}
+      <section className="flex-1 flex flex-col items-center justify-center px-4 py-6 max-w-lg mx-auto w-full">
         <AnimatePresence mode="wait">
           {currentCard && (
             <motion.div
@@ -364,88 +375,120 @@ const FlashCardsTest = () => {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
+              className="w-full flex flex-col items-center"
             >
-              {/* Alert for feedback */}
+              {/* Header: Python Quiz / KiddyKode */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl md:text-4xl font-black text-white">
+                  Python <span className="text-kiddykode-yellow">Quiz</span>
+                </h1>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <span className="h-[2px] w-8 bg-white/40" />
+                  <span className="text-sm font-bold">
+                    <span className="text-kiddykode-orange">K</span>
+                    <span className="text-[hsl(0_70%_65%)]">i</span>
+                    <span className="text-kiddykode-yellow">d</span>
+                    <span className="text-[hsl(200_70%_55%)]">d</span>
+                    <span className="text-kiddykode-green">y</span>
+                    <span className="text-white">K</span>
+                    <span className="text-kiddykode-orange">o</span>
+                    <span className="text-kiddykode-yellow">d</span>
+                    <span className="text-kiddykode-green">e</span>
+                  </span>
+                  <span className="h-[2px] w-8 bg-white/40" />
+                </div>
+              </div>
+
+              {/* Question text */}
+              <p className="text-white text-xl md:text-2xl font-semibold text-center leading-relaxed mb-8 px-2">
+                {isFrench ? currentCard.questionFr : currentCard.question}
+              </p>
+
+              {/* Feedback alert */}
               <AnimatePresence>
                 {selectedAnswer !== null && (
                   <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="mb-4"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="w-full mb-4"
                   >
-                    <Alert className={`border-2 ${isCorrect 
-                      ? 'bg-green-50 border-green-500 dark:bg-green-950/50' 
-                      : 'bg-red-50 border-red-500 dark:bg-red-950/50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isCorrect ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-red-600" />
-                        )}
-                        <AlertDescription className={`font-semibold ${isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                          {isCorrect 
-                            ? (isFrench ? '🎉 Bonne réponse!' : '🎉 Correct Answer!') 
-                            : (isFrench ? `❌ Mauvaise réponse! La bonne réponse est: ${currentCard.optionsFr[currentCard.correctIndex]}` : `❌ Wrong! The correct answer is: ${currentCard.options[currentCard.correctIndex]}`)}
-                        </AlertDescription>
-                      </div>
-                    </Alert>
+                    <div className={`rounded-2xl p-4 flex items-center gap-3 ${
+                      isCorrect 
+                        ? 'bg-kiddykode-green/20 border-2 border-kiddykode-green/50' 
+                        : 'bg-[hsl(0_70%_65%)]/20 border-2 border-[hsl(0_70%_65%)]/50'
+                    }`}>
+                      {isCorrect ? (
+                        <CheckCircle className="w-6 h-6 text-kiddykode-green shrink-0" />
+                      ) : (
+                        <XCircle className="w-6 h-6 text-[hsl(0_70%_65%)] shrink-0" />
+                      )}
+                      <p className={`font-bold text-sm ${isCorrect ? 'text-kiddykode-green' : 'text-[hsl(0_70%_65%)]'}`}>
+                        {isCorrect 
+                          ? (isFrench ? '🎉 Bonne réponse!' : '🎉 Correct!') 
+                          : (isFrench 
+                              ? `❌ La bonne réponse: ${currentCard.optionsFr[currentCard.correctIndex]}` 
+                              : `❌ Correct answer: ${currentCard.options[currentCard.correctIndex]}`)}
+                      </p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Question Card */}
-              <div className="bg-gradient-to-br from-kiddykode-purple to-primary rounded-3xl p-6 text-white shadow-xl">
-                <p className="text-xl font-semibold text-center mb-6">
-                  {isFrench ? currentCard.questionFr : currentCard.question}
-                </p>
-                
-                {/* MCQ Options */}
-                <div className="grid gap-3">
-                  {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
-                    const isSelected = selectedAnswer === index;
-                    const isCorrectOption = index === currentCard.correctIndex;
-                    const showResult = selectedAnswer !== null;
-                    
-                    let optionClass = 'bg-white/20 hover:bg-white/30 border-transparent';
-                    if (showResult) {
-                      if (isCorrectOption) {
-                        optionClass = 'bg-green-500 border-green-300 ring-2 ring-green-300';
-                      } else if (isSelected && !isCorrectOption) {
-                        optionClass = 'bg-red-500 border-red-300 ring-2 ring-red-300';
-                      }
+              {/* Options - pill shaped with colored letter circles */}
+              <div className="w-full space-y-3">
+                {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
+                  const isSelected = selectedAnswer === index;
+                  const isCorrectOption = index === currentCard.correctIndex;
+                  const showResult = selectedAnswer !== null;
+
+                  let pillBg = 'bg-white';
+                  let textColor = letterTextColors[index] || 'text-foreground';
+                  let ringClass = '';
+                  
+                  if (showResult) {
+                    if (isCorrectOption) {
+                      pillBg = 'bg-kiddykode-green/20';
+                      ringClass = 'ring-4 ring-kiddykode-green/60';
+                      textColor = 'text-kiddykode-green';
+                    } else if (isSelected && !isCorrectOption) {
+                      pillBg = 'bg-[hsl(0_70%_65%)]/20';
+                      ringClass = 'ring-4 ring-[hsl(0_70%_65%)]/60';
+                      textColor = 'text-[hsl(0_70%_65%)]';
+                    } else {
+                      pillBg = 'bg-white/50';
                     }
-                    
-                    return (
-                      <motion.button
-                        key={index}
-                        whileHover={selectedAnswer === null ? { scale: 1.02 } : {}}
-                        whileTap={selectedAnswer === null ? { scale: 0.98 } : {}}
-                        onClick={() => handleOptionClick(index)}
-                        disabled={selectedAnswer !== null}
-                        className={`w-full p-4 rounded-xl border-2 text-left font-medium transition-all duration-200 ${optionClass} ${
-                          selectedAnswer === null ? 'cursor-pointer' : 'cursor-default'
-                        }`}
-                      >
-                        <span className="flex items-center gap-3">
-                          <span className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center font-bold">
-                            {String.fromCharCode(65 + index)}
-                          </span>
-                          {option}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
+                  }
+
+                  return (
+                    <motion.button
+                      key={index}
+                      whileHover={selectedAnswer === null ? { scale: 1.03 } : {}}
+                      whileTap={selectedAnswer === null ? { scale: 0.97 } : {}}
+                      onClick={() => handleOptionClick(index)}
+                      disabled={selectedAnswer !== null}
+                      className={`w-full flex items-center gap-4 rounded-full px-3 py-3 md:py-4 transition-all duration-200 ${pillBg} ${ringClass} ${
+                        selectedAnswer === null ? 'cursor-pointer hover:shadow-lg' : 'cursor-default'
+                      }`}
+                    >
+                      <span className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${letterColors[index]} flex items-center justify-center text-white font-black text-lg md:text-xl shrink-0`}>
+                        {String.fromCharCode(65 + index)}
+                      </span>
+                      <span className={`font-bold text-base md:text-lg ${showResult ? textColor : (letterTextColors[index] || 'text-foreground')}`}>
+                        {option}
+                      </span>
+                    </motion.button>
+                  );
+                })}
               </div>
 
-              <div className="flex gap-3 mt-6">
+              {/* Navigation buttons */}
+              <div className="flex gap-3 mt-8 w-full">
                 <Button
                   variant="outline"
                   onClick={handlePrevCard}
                   disabled={currentCardIndex === 0}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 border-white/30 text-white hover:bg-white/10 bg-transparent"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {isFrench ? 'Précédent' : 'Previous'}
@@ -454,7 +497,7 @@ const FlashCardsTest = () => {
                 <Button
                   onClick={handleNextCard}
                   disabled={selectedAnswer === null}
-                  className="flex-1 flex items-center justify-center gap-2"
+                  className="flex-1 flex items-center justify-center gap-2 bg-kiddykode-yellow text-secondary hover:bg-kiddykode-yellow/90 font-bold"
                 >
                   {currentCardIndex < shuffledCards.length - 1 
                     ? (isFrench ? 'Suivant' : 'Next')
