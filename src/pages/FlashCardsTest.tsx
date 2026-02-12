@@ -436,7 +436,7 @@ const FlashCardsTest = () => {
               </AnimatePresence>
 
               {/* Options - pill shaped with colored letter circles */}
-              <div className="w-full space-y-3">
+              <div className="w-full space-y-2">
                 {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
                   const isSelected = selectedAnswer === index;
                   const isCorrectOption = index === currentCard.correctIndex;
@@ -449,11 +449,11 @@ const FlashCardsTest = () => {
                   if (showResult) {
                     if (isCorrectOption) {
                       pillBg = 'bg-kiddykode-green/20';
-                      ringClass = 'ring-4 ring-kiddykode-green/60';
+                      ringClass = 'ring-2 ring-kiddykode-green/60';
                       textColor = 'text-kiddykode-green';
                     } else if (isSelected && !isCorrectOption) {
                       pillBg = 'bg-[hsl(0_70%_65%)]/20';
-                      ringClass = 'ring-4 ring-[hsl(0_70%_65%)]/60';
+                      ringClass = 'ring-2 ring-[hsl(0_70%_65%)]/60';
                       textColor = 'text-[hsl(0_70%_65%)]';
                     } else {
                       pillBg = 'bg-white/50';
@@ -463,18 +463,18 @@ const FlashCardsTest = () => {
                   return (
                     <motion.button
                       key={index}
-                      whileHover={selectedAnswer === null ? { scale: 1.03 } : {}}
-                      whileTap={selectedAnswer === null ? { scale: 0.97 } : {}}
+                      whileHover={selectedAnswer === null ? { scale: 1.02 } : {}}
+                      whileTap={selectedAnswer === null ? { scale: 0.98 } : {}}
                       onClick={() => handleOptionClick(index)}
                       disabled={selectedAnswer !== null}
-                      className={`w-full flex items-center gap-4 rounded-full px-3 py-3 md:py-4 transition-all duration-200 ${pillBg} ${ringClass} ${
-                        selectedAnswer === null ? 'cursor-pointer hover:shadow-lg' : 'cursor-default'
+                      className={`w-full flex items-center gap-3 rounded-full px-2 py-2 transition-all duration-200 ${pillBg} ${ringClass} ${
+                        selectedAnswer === null ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
                       }`}
                     >
-                      <span className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${letterColors[index]} flex items-center justify-center text-white font-black text-lg md:text-xl shrink-0`}>
+                      <span className={`w-8 h-8 rounded-full ${letterColors[index]} flex items-center justify-center text-white font-black text-sm shrink-0`}>
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <span className={`font-bold text-base md:text-lg ${showResult ? textColor : (letterTextColors[index] || 'text-foreground')}`}>
+                      <span className={`font-bold text-sm ${showResult ? textColor : (letterTextColors[index] || 'text-foreground')}`}>
                         {option}
                       </span>
                     </motion.button>
