@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,9 @@ import {
   ShoppingCart,
   Target,
   CheckSquare,
-  Rocket
+  Rocket,
+  AlertCircle,
+  Code2
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import Markdown from 'react-markdown';
@@ -22,6 +24,237 @@ import { supermarketProject } from '@/data/supermarketProject';
 import { useProgressStore } from '@/stores/progressStore';
 import { Progress } from '@/components/ui/progress';
 import Confetti from 'react-confetti';
+
+// Parse input() calls from Python code
+const parseInputCalls = (code: string): { varName: string; prompt: string; isInt: boolean }[] => {
+  const inputs: { varName: string; prompt: string; isInt: boolean }[] = [];
+  const lines = code.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) continue;
+    
+    const intInputMatch = trimmed.match(/^(\w+)\s*=\s*int\s*\(\s*input\s*\(\s*["'](.+?)["']\s*\)\s*\)/);
+    if (intInputMatch) {
+      inputs.push({ varName: intInputMatch[1], prompt: intInputMatch[2], isInt: true });
+      continue;
+    }
+    const strInputMatch = trimmed.match(/^(\w+)\s*=\s*input\s*\(\s*["'](.+?)["']\s*\)/);
+    if (strInputMatch) {
+      inputs.push({ varName: strInputMatch[1], prompt: strInputMatch[2], isInt: false });
+    }
+  }
+  return inputs;
+};
+
+// Helper to split print arguments respecting strings
+const splitPrintArgs = (content: string): string[] => {
+  const args: string[] = [];
+  let current = '';
+  let inString: string | null = null;
+  let depth = 0;
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    if (inString) {
+      current += char;
+      if (char === inString && content[i - 1] !== '\\') inString = null;
+    } else if (char === '"' || char === "'") {
+      current += char;
+      inString = char;
+    } else if (char === '(') {
+      current += char;
+      depth++;
+    } else if (char === ')') {
+      current += char;
+      depth--;
+    } else if (char === ',' && depth === 0) {
+      args.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current) args.push(current);
+  return args;
+};
+
+// Simple Python expression evaluator
+const evaluateExpr = (expr: string, variables: Record<string, any>): any => {
+  const trimmed = expr.trim();
+  
+  // String literal
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  
+  // String multiplication: "=" * 40
+  const strMul = trimmed.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
+  if (strMul) return strMul[1].repeat(parseInt(strMul[2]));
+  
+  // String concatenation with +
+  if (trimmed.includes(' + ')) {
+    const parts = trimmed.split(' + ').map(p => {
+      const tp = p.trim();
+      if ((tp.startsWith('"') && tp.endsWith('"')) || (tp.startsWith("'") && tp.endsWith("'"))) {
+        return tp.slice(1, -1);
+      }
+      const sm = tp.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
+      if (sm) return sm[1].repeat(parseInt(sm[2]));
+      if (variables[tp] !== undefined) return String(variables[tp]);
+      return tp;
+    });
+    return parts.join('');
+  }
+  
+  // Variable reference
+  if (variables[trimmed] !== undefined) {
+    return variables[trimmed];
+  }
+  
+  // Numeric expression - substitute variables
+  const substituted = trimmed.replace(/\b([a-zA-Z_]\w*)\b/g, (match) => {
+    if (variables[match] !== undefined) return String(variables[match]);
+    return match;
+  });
+  
+  try {
+    return eval(substituted);
+  } catch {
+    return substituted;
+  }
+};
+
+// Evaluate a Python condition
+const evaluateCondition = (condition: string, variables: Record<string, any>): boolean => {
+  const substituted = condition.replace(/\b([a-zA-Z_]\w*)\b/g, (match) => {
+    if (variables[match] !== undefined) return String(variables[match]);
+    return match;
+  });
+  try {
+    const jsCondition = substituted.replace(/(?<!=)=(?!=)/g, '==');
+    return Boolean(eval(jsCondition));
+  } catch {
+    return false;
+  }
+};
+
+// Execute Python code with given input values
+const executePython = (code: string, inputVals: Record<string, string>): string => {
+  let result = '';
+  const variables: Record<string, any> = {};
+  const lines = code.split('\n');
+  
+  let skipBlock = false;
+  let ifMatched = false;
+  let inIfBlock = false;
+  let baseIndent = 0;
+
+  const executePrint = (argsStr: string) => {
+    if (!argsStr.trim()) {
+      result += '\n';
+      return;
+    }
+    const args = splitPrintArgs(argsStr);
+    const values = args.map(arg => {
+      const val = evaluateExpr(arg, variables);
+      return String(val);
+    });
+    result += values.join(' ') + '\n';
+  };
+
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
+    const trimmed = line.trim();
+    const indent = line.length - line.trimStart().length;
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // Handle if/elif/else
+    if (trimmed.match(/^if\s+/) && trimmed.endsWith(':')) {
+      const condition = trimmed.slice(3, -1).trim();
+      const condResult = evaluateCondition(condition, variables);
+      inIfBlock = true;
+      baseIndent = indent;
+      ifMatched = condResult;
+      skipBlock = !condResult;
+      continue;
+    }
+
+    if (trimmed.match(/^elif\s+/) && trimmed.endsWith(':')) {
+      if (ifMatched) {
+        skipBlock = true;
+        continue;
+      }
+      const condition = trimmed.slice(5, -1).trim();
+      const condResult = evaluateCondition(condition, variables);
+      ifMatched = condResult;
+      skipBlock = !condResult;
+      continue;
+    }
+
+    if ((trimmed === 'else:' || trimmed.startsWith('else:')) && inIfBlock) {
+      if (ifMatched) {
+        skipBlock = true;
+      } else {
+        skipBlock = false;
+        ifMatched = true;
+      }
+      continue;
+    }
+
+    // Inside indented block
+    if (indent > baseIndent && inIfBlock) {
+      if (skipBlock) continue;
+      // Process the line (fall through to handlers below)
+    }
+
+    // Back to base indent - reset if block
+    if (indent <= baseIndent && inIfBlock && !trimmed.startsWith('if ') && !trimmed.startsWith('elif ') && !trimmed.startsWith('else')) {
+      inIfBlock = false;
+      ifMatched = false;
+      skipBlock = false;
+    }
+
+    if (skipBlock && indent > baseIndent) continue;
+
+    // int(input())
+    const intInput = trimmed.match(/^(\w+)\s*=\s*int\s*\(\s*input\s*\(\s*["'](.+?)["']\s*\)\s*\)/);
+    if (intInput) {
+      const [, varName, prompt] = intInput;
+      const val = parseInt(inputVals[varName] || '0');
+      variables[varName] = isNaN(val) ? 0 : val;
+      result += `${prompt}${variables[varName]}\n`;
+      continue;
+    }
+
+    // string input()
+    const strInput = trimmed.match(/^(\w+)\s*=\s*input\s*\(\s*["'](.+?)["']\s*\)/);
+    if (strInput) {
+      const [, varName, prompt] = strInput;
+      variables[varName] = inputVals[varName] || '';
+      result += `${prompt}${variables[varName]}\n`;
+      continue;
+    }
+
+    // print()
+    const printMatch = trimmed.match(/^print\s*\((.*)\)$/);
+    if (printMatch) {
+      executePrint(printMatch[1]);
+      continue;
+    }
+
+    // Variable assignment
+    const assign = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
+    if (assign) {
+      const [, varName, expr] = assign;
+      variables[varName] = evaluateExpr(expr, variables);
+      continue;
+    }
+  }
+
+  return result;
+};
 
 const SupermarketProject = () => {
   const navigate = useNavigate();
@@ -31,191 +264,101 @@ const SupermarketProject = () => {
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [completedCodes, setCompletedCodes] = useState<Record<string, string>>({});
   const [showHints, setShowHints] = useState(false);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [showCelebration, setShowCelebration] = useState(false);
+  const [isValidated, setIsValidated] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+  const [hasRun, setHasRun] = useState(false);
 
   const steps = supermarketProject.phases;
   const currentStep = steps[currentStepIndex];
   const content = isFrench ? currentStep.contentFr : currentStep.content;
   const title = isFrench ? currentStep.titleFr : currentStep.title;
 
+  // Build code for current step from previous completed code + current new section
   useEffect(() => {
-    if (content.starterCode) {
-      setCode(content.starterCode);
+    if (currentStep.type === 'review') {
+      // Step 8: show full combined code from all completed steps
+      const lastStepId = steps[currentStepIndex - 1]?.id;
+      setCode(completedCodes[lastStepId] || '');
+    } else if (currentStepIndex === 0) {
+      setCode(content.starterCode || '');
+    } else {
+      // Find the most recent completed code
+      let previousCode = '';
+      for (let i = currentStepIndex - 1; i >= 0; i--) {
+        if (completedCodes[steps[i].id]) {
+          previousCode = completedCodes[steps[i].id];
+          break;
+        }
+      }
+      const newSection = content.starterCode || '';
+      setCode(previousCode ? previousCode + '\n\n' + newSection : newSection);
     }
     setOutput('');
     setShowHints(false);
-  }, [currentStepIndex, content.starterCode]);
+    setIsValidated(false);
+    setValidationErrors([]);
+    setHasRun(false);
+    setInputValues({});
+  }, [currentStepIndex]);
 
-  const runCode = () => {
-    try {
-      let result = '';
-      const lines = code.split('\n');
-      const variables: Record<string, any> = {};
-      let pendingInputs: string[] = [];
-      let inputCount = 0;
+  // Parse input calls from current code
+  const inputPrompts = useMemo(() => parseInputCalls(code), [code]);
 
-      // Collect all input() calls and simulate them
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-
-        // Handle if/elif/else blocks simply
-        if (trimmed.startsWith('if ') || trimmed.startsWith('elif ') || trimmed.startsWith('else')) continue;
-
-        // Handle variable assignment with input
-        const inputAssign = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*int\s*\(\s*input\s*\((.*)\)\s*\)$/);
-        if (inputAssign) {
-          const varName = inputAssign[1];
-          inputCount++;
-          // Simulate with sample values
-          const sampleValues = [3, 2, 1, 5000, 10000];
-          variables[varName] = sampleValues[(inputCount - 1) % sampleValues.length];
-          const prompt = inputAssign[2].replace(/['"]/g, '');
-          result += `${prompt}${variables[varName]}\n`;
-          continue;
-        }
-
-        // Handle simple input
-        const simpleInputAssign = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*input\s*\((.*)\)$/);
-        if (simpleInputAssign) {
-          const varName = simpleInputAssign[1];
-          variables[varName] = 'test';
-          const prompt = simpleInputAssign[2].replace(/['"]/g, '');
-          result += `${prompt}test\n`;
-          continue;
-        }
-
-        // Handle print statements
-        const printMatch = trimmed.match(/^print\s*\((.*)\)$/);
-        if (printMatch) {
-          let content = printMatch[1];
-          
-          // Handle string multiplication like "=" * 40
-          const strMulMatch = content.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
-          if (strMulMatch) {
-            result += strMulMatch[1].repeat(parseInt(strMulMatch[2])) + '\n';
-            continue;
-          }
-
-          // Handle concatenation with + 
-          if (content.includes('" + "') || content.includes("' + '") || content.includes('" + \'') || content.includes("' + \"")) {
-            // Simple string concat
-          }
-
-          // Handle multiple arguments
-          const args = splitPrintArgs(content);
-          const evaluated = args.map(arg => {
-            const trimArg = arg.trim();
-            
-            // String literal
-            if ((trimArg.startsWith('"') && trimArg.endsWith('"')) ||
-                (trimArg.startsWith("'") && trimArg.endsWith("'"))) {
-              return trimArg.slice(1, -1);
-            }
-
-            // String multiplication
-            const mulMatch = trimArg.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
-            if (mulMatch) {
-              return mulMatch[1].repeat(parseInt(mulMatch[2]));
-            }
-
-            // String concatenation
-            if (trimArg.includes(' + ')) {
-              const parts = trimArg.split(' + ').map(p => {
-                const tp = p.trim();
-                if ((tp.startsWith('"') && tp.endsWith('"')) || (tp.startsWith("'") && tp.endsWith("'"))) {
-                  return tp.slice(1, -1);
-                }
-                // String * number
-                const sm = tp.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
-                if (sm) return sm[1].repeat(parseInt(sm[2]));
-                if (variables[tp] !== undefined) return String(variables[tp]);
-                return tp;
-              });
-              return parts.join('');
-            }
-
-            // Variable reference
-            if (variables[trimArg] !== undefined) {
-              return String(variables[trimArg]);
-            }
-
-            // Escaped strings
-            if (trimArg === '\\n' || trimArg === '"\\n"' || trimArg === "'\\n'") return '';
-
-            return trimArg;
-          });
-          result += evaluated.join(' ') + '\n';
-          continue;
-        }
-
-        // Handle variable assignment with expression
-        const assignMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*(.+)$/);
-        if (assignMatch) {
-          const varName = assignMatch[1];
-          let value = assignMatch[2].trim();
-          
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
-            variables[varName] = value.slice(1, -1);
-          } else {
-            try {
-              const expr = value.replace(/[a-zA-Z_]\w*/g, (match) => 
-                variables[match] !== undefined ? String(variables[match]) : match
-              );
-              variables[varName] = eval(expr);
-            } catch {
-              variables[varName] = value;
-            }
-          }
-          continue;
-        }
+  const validateCode = (): { valid: boolean; errors: string[] } => {
+    const rules = content.validationRules;
+    if (!rules || rules.length === 0) return { valid: true, errors: [] };
+    
+    const errors: string[] = [];
+    for (const rule of rules) {
+      const regex = new RegExp(rule.pattern);
+      if (!regex.test(code)) {
+        errors.push(isFrench ? rule.messageFr : rule.message);
       }
-
-      setOutput(result || '✅ Code ran successfully! Check your logic.');
-    } catch (error) {
-      setOutput(`❌ Error: ${error}`);
     }
+    return { valid: errors.length === 0, errors };
   };
 
-  // Helper to split print arguments respecting strings
-  const splitPrintArgs = (content: string): string[] => {
-    const args: string[] = [];
-    let current = '';
-    let inString: string | null = null;
-    let depth = 0;
-
-    for (let i = 0; i < content.length; i++) {
-      const char = content[i];
-      if (inString) {
-        current += char;
-        if (char === inString && content[i - 1] !== '\\') inString = null;
-      } else if (char === '"' || char === "'") {
-        current += char;
-        inString = char;
-      } else if (char === '(') {
-        current += char;
-        depth++;
-      } else if (char === ')') {
-        current += char;
-        depth--;
-      } else if (char === ',' && depth === 0) {
-        args.push(current);
-        current = '';
-      } else {
-        current += char;
+  const runCode = () => {
+    // Check if all input fields are filled
+    for (const prompt of inputPrompts) {
+      if (!inputValues[prompt.varName] && inputValues[prompt.varName] !== '0') {
+        setOutput(isFrench 
+          ? `❌ Remplis tous les champs de saisie avant d'exécuter!` 
+          : `❌ Fill in all input fields before running!`);
+        return;
       }
     }
-    if (current) args.push(current);
-    return args;
+
+    try {
+      const result = executePython(code, inputValues);
+      setOutput(result || (isFrench ? '✅ Code exécuté avec succès!' : '✅ Code ran successfully!'));
+      
+      // Validate
+      const { valid, errors } = validateCode();
+      setIsValidated(valid);
+      setValidationErrors(errors);
+      setHasRun(true);
+    } catch (error) {
+      setOutput(`❌ Error: ${error}`);
+      setIsValidated(false);
+      setHasRun(true);
+    }
   };
 
   const completeStep = () => {
+    if (!isValidated && currentStep.type !== 'review') return;
+    
+    // Store completed code
+    setCompletedCodes(prev => ({ ...prev, [currentStep.id]: code }));
+    
     if (!completedSteps.includes(currentStep.id)) {
-      setCompletedSteps([...completedSteps, currentStep.id]);
+      setCompletedSteps(prev => [...prev, currentStep.id]);
     }
     
     if (currentStepIndex < steps.length - 1) {
@@ -236,6 +379,8 @@ const SupermarketProject = () => {
   };
 
   const progressPercentage = ((completedSteps.length) / steps.length) * 100;
+
+  const canComplete = currentStep.type === 'review' ? hasRun : isValidated;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-amber-100 dark:from-orange-950 dark:to-amber-900">
@@ -315,7 +460,11 @@ const SupermarketProject = () => {
             {/* Step Title & Introduction */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center gap-3 mb-4">
-                <ShoppingCart className="w-8 h-8 text-orange-500" />
+                {currentStep.type === 'review' ? (
+                  <Code2 className="w-8 h-8 text-orange-500" />
+                ) : (
+                  <ShoppingCart className="w-8 h-8 text-orange-500" />
+                )}
                 <h2 className="text-2xl font-bold text-foreground">{title}</h2>
               </div>
               <div className="prose dark:prose-invert max-w-none">
@@ -323,23 +472,34 @@ const SupermarketProject = () => {
               </div>
             </div>
 
-            {/* Code Editor */}
-            {currentStep.type === 'coding' && (
+            {/* Code Editor - for coding and review steps */}
+            {(currentStep.type === 'coding' || currentStep.type === 'review') && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                   <h3 className="font-bold text-foreground flex items-center gap-2">
-                    <Play className="w-5 h-5 text-orange-500" />
-                    {isFrench ? 'Ton Code Python' : 'Your Python Code'}
+                    {currentStep.type === 'review' ? (
+                      <>
+                        <Code2 className="w-5 h-5 text-orange-500" />
+                        {isFrench ? 'Ton Programme Complet' : 'Your Complete Program'}
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5 text-orange-500" />
+                        {isFrench ? 'Ton Code Python' : 'Your Python Code'}
+                      </>
+                    )}
                   </h3>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowHints(!showHints)}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-lg font-semibold"
-                  >
-                    <Lightbulb className="w-4 h-4" />
-                    {isFrench ? 'Indices' : 'Hints'}
-                  </motion.button>
+                  {currentStep.type === 'coding' && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowHints(!showHints)}
+                      className="flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-lg font-semibold"
+                    >
+                      <Lightbulb className="w-4 h-4" />
+                      {isFrench ? 'Indices' : 'Hints'}
+                    </motion.button>
+                  )}
                 </div>
 
                 {/* Hints */}
@@ -368,7 +528,12 @@ const SupermarketProject = () => {
                     height="100%"
                     defaultLanguage="python"
                     value={code}
-                    onChange={(value) => setCode(value || '')}
+                    onChange={(value) => {
+                      setCode(value || '');
+                      // Reset validation when code changes
+                      setIsValidated(false);
+                      setHasRun(false);
+                    }}
                     theme="vs-dark"
                     options={{
                       fontSize: 14,
@@ -378,9 +543,38 @@ const SupermarketProject = () => {
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
+                      readOnly: currentStep.type === 'review',
                     }}
                   />
                 </div>
+
+                {/* Input Fields Panel */}
+                {inputPrompts.length > 0 && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-700">
+                    <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                      ⌨️ {isFrench ? 'Entrées du Programme (tape tes valeurs):' : 'Program Inputs (type your values):'}
+                    </h4>
+                    <div className="grid gap-2">
+                      {inputPrompts.map((prompt) => (
+                        <div key={prompt.varName} className="flex items-center gap-3">
+                          <label className="text-sm font-medium text-blue-700 dark:text-blue-300 min-w-[200px]">
+                            {prompt.prompt}
+                          </label>
+                          <input
+                            type={prompt.isInt ? 'number' : 'text'}
+                            value={inputValues[prompt.varName] || ''}
+                            onChange={(e) => setInputValues(prev => ({
+                              ...prev,
+                              [prompt.varName]: e.target.value
+                            }))}
+                            className="flex-1 px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-800 text-foreground text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder={prompt.isInt ? (isFrench ? 'Tape un nombre...' : 'Type a number...') : (isFrench ? 'Tape ta réponse...' : 'Type your answer...')}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="p-4 bg-gray-50 dark:bg-gray-900 flex flex-wrap gap-3">
@@ -391,18 +585,69 @@ const SupermarketProject = () => {
                     className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-bold shadow-lg"
                   >
                     <Play className="w-5 h-5" />
-                    {isFrench ? 'Exécuter' : 'Run Code'}
+                    {currentStep.type === 'review' 
+                      ? (isFrench ? 'Exécuter Mon Programme' : 'Run My Program')
+                      : (isFrench ? 'Exécuter' : 'Run Code')
+                    }
                   </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCode(content.starterCode || '')}
-                    className="flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    {isFrench ? 'Réinitialiser' : 'Reset'}
-                  </motion.button>
+                  {currentStep.type === 'coding' && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        // Reset to original starter code for current step
+                        if (currentStepIndex === 0) {
+                          setCode(content.starterCode || '');
+                        } else {
+                          let previousCode = '';
+                          for (let i = currentStepIndex - 1; i >= 0; i--) {
+                            if (completedCodes[steps[i].id]) {
+                              previousCode = completedCodes[steps[i].id];
+                              break;
+                            }
+                          }
+                          const newSection = content.starterCode || '';
+                          setCode(previousCode ? previousCode + '\n\n' + newSection : newSection);
+                        }
+                        setIsValidated(false);
+                        setHasRun(false);
+                        setOutput('');
+                        setValidationErrors([]);
+                      }}
+                      className="flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      {isFrench ? 'Réinitialiser' : 'Reset'}
+                    </motion.button>
+                  )}
                 </div>
+
+                {/* Validation Feedback */}
+                {hasRun && !isValidated && validationErrors.length > 0 && currentStep.type === 'coding' && (
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-700">
+                    <h4 className="text-sm font-bold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {isFrench ? 'Pas encore correct — essaie encore!' : 'Not quite right — try again!'}
+                    </h4>
+                    <ul className="space-y-1">
+                      {validationErrors.map((error, index) => (
+                        <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
+                          <span>❌</span>
+                          <span>{error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {hasRun && isValidated && currentStep.type === 'coding' && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border-t border-green-200 dark:border-green-700">
+                    <p className="text-sm font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      {isFrench ? '✅ Parfait! Ton code est correct! Clique "Étape Suivante" pour continuer!' : '✅ Perfect! Your code is correct! Click "Next Step" to continue!'}
+                    </p>
+                  </div>
+                )}
 
                 {/* Output */}
                 {output && (
@@ -488,10 +733,15 @@ const SupermarketProject = () => {
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={canComplete ? { scale: 1.05 } : {}}
+                whileTap={canComplete ? { scale: 0.95 } : {}}
                 onClick={completeStep}
-                className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-lg"
+                disabled={!canComplete}
+                className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold shadow-lg transition-all ${
+                  canComplete
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white cursor-pointer'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                }`}
               >
                 {currentStepIndex === steps.length - 1 ? (
                   <>
@@ -506,6 +756,27 @@ const SupermarketProject = () => {
                 )}
               </motion.button>
             </div>
+
+            {/* Not completed message */}
+            {!canComplete && currentStep.type !== 'review' && (
+              <div className="text-center">
+                <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                  {isFrench 
+                    ? '⚠️ Complète cette étape correctement avant de passer à la suivante!' 
+                    : '⚠️ Complete this step correctly before moving to the next one!'}
+                </p>
+              </div>
+            )}
+
+            {!canComplete && currentStep.type === 'review' && (
+              <div className="text-center">
+                <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                  {isFrench 
+                    ? '⚠️ Exécute ton programme complet pour terminer le projet!' 
+                    : '⚠️ Run your complete program to finish the project!'}
+                </p>
+              </div>
+            )}
 
             {/* Celebration */}
             {showCelebration && content.celebration && (
