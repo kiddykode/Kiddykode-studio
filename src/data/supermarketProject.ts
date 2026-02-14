@@ -1,8 +1,14 @@
+export interface ValidationRule {
+  pattern: string;
+  message: string;
+  messageFr: string;
+}
+
 export interface SupermarketStep {
   id: string;
   title: string;
   titleFr: string;
-  type: 'learning' | 'coding' | 'celebration';
+  type: 'learning' | 'coding' | 'celebration' | 'review';
   content: StepContent;
   contentFr: StepContent;
 }
@@ -12,6 +18,7 @@ export interface StepContent {
   starterCode?: string;
   codeHints?: string[];
   expectedLogic?: string[];
+  validationRules?: ValidationRule[];
   whatYouLearned?: string;
   successCheck?: string;
   motivation?: string;
@@ -83,11 +90,11 @@ print("Cake:", cake_price)
         '💡 print() displays text on the screen',
         '💡 You can print text and variables together: print("Apple:", apple_price)'
       ],
-      expectedLogic: [
-        'Set apple_price to an integer value',
-        'Set mambo_price to an integer value',
-        'Set cake_price to an integer value',
-        'Print a welcome message with all prices'
+      validationRules: [
+        { pattern: 'apple_price\\s*=\\s*\\d+', message: 'Set apple_price to a number (e.g., apple_price = 500)', messageFr: 'Définis apple_price avec un nombre (ex: apple_price = 500)' },
+        { pattern: 'mambo_price\\s*=\\s*\\d+', message: 'Set mambo_price to a number (e.g., mambo_price = 200)', messageFr: 'Définis mambo_price avec un nombre (ex: mambo_price = 200)' },
+        { pattern: 'cake_price\\s*=\\s*\\d+', message: 'Set cake_price to a number (e.g., cake_price = 1500)', messageFr: 'Définis cake_price avec un nombre (ex: cake_price = 1500)' },
+        { pattern: 'print\\s*\\(', message: 'Add at least one print() statement', messageFr: 'Ajoute au moins un print()' }
       ],
       whatYouLearned: '🎯 You learned how to create **variables** and use **print()** to display information!',
       successCheck: '✅ Your program shows a welcome message with all three prices.',
@@ -122,7 +129,7 @@ Cela signifie: "Mets le nombre 500 dans une boîte étiquetée prix_pomme."
 # ========================================
 
 # Fixe le prix de chaque article (dans ta monnaie)
-# Exemple: prix_pomme = 500
+# Exemple: apple_price = 500
 
 apple_price = # Écris le prix ici
 mambo_price = # Écris le prix ici
@@ -143,11 +150,11 @@ print("Gâteau:", cake_price)
         '💡 print() affiche du texte à l\'écran',
         '💡 Tu peux afficher du texte et des variables ensemble: print("Pomme:", apple_price)'
       ],
-      expectedLogic: [
-        'Définir apple_price avec un entier',
-        'Définir mambo_price avec un entier',
-        'Définir cake_price avec un entier',
-        'Afficher un message de bienvenue avec tous les prix'
+      validationRules: [
+        { pattern: 'apple_price\\s*=\\s*\\d+', message: 'Set apple_price to a number (e.g., apple_price = 500)', messageFr: 'Définis apple_price avec un nombre (ex: apple_price = 500)' },
+        { pattern: 'mambo_price\\s*=\\s*\\d+', message: 'Set mambo_price to a number (e.g., mambo_price = 200)', messageFr: 'Définis mambo_price avec un nombre (ex: mambo_price = 200)' },
+        { pattern: 'cake_price\\s*=\\s*\\d+', message: 'Set cake_price to a number (e.g., cake_price = 1500)', messageFr: 'Définis cake_price avec un nombre (ex: cake_price = 1500)' },
+        { pattern: 'print\\s*\\(', message: 'Add at least one print() statement', messageFr: 'Ajoute au moins un print()' }
       ],
       whatYouLearned: '🎯 Tu as appris à créer des **variables** et à utiliser **print()** pour afficher des informations!',
       successCheck: '✅ Ton programme affiche un message de bienvenue avec les trois prix.',
@@ -183,20 +190,6 @@ Add code to ask the customer:
 
 **Complete this step before unlocking Step 3.**`,
       starterCode: `# ========================================
-# STEP 1: SETTING UP THE STORE 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Welcome to KiddyKode Supermarket!")
-print("Here are our prices:")
-print("Apple:", apple_price)
-print("Mambo:", mambo_price)
-print("Cake:", cake_price)
-print("")
-
-# ========================================
 # STEP 2: TAKING CUSTOMER ORDERS 🛒
 # ========================================
 
@@ -211,7 +204,7 @@ mambo_qty = # Ask how many mambo
 cake_qty = # Ask how many cakes
 
 # Show what the customer ordered
-print("\\nYour order:")
+print("Your order:")
 print("Apples:", apple_qty)
 print("Mambo:", mambo_qty)
 print("Cake:", cake_qty)
@@ -222,11 +215,10 @@ print("Cake:", cake_qty)
         '💡 Combine them: int(input("Your question here: "))',
         '💡 The text inside input() is what the customer sees'
       ],
-      expectedLogic: [
-        'Use int(input()) for apple_qty',
-        'Use int(input()) for mambo_qty',
-        'Use int(input()) for cake_qty',
-        'Print the order summary'
+      validationRules: [
+        { pattern: 'apple_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for apple_qty', messageFr: 'Utilise int(input()) pour apple_qty' },
+        { pattern: 'mambo_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for mambo_qty', messageFr: 'Utilise int(input()) pour mambo_qty' },
+        { pattern: 'cake_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for cake_qty', messageFr: 'Utilise int(input()) pour cake_qty' }
       ],
       whatYouLearned: '🎯 You learned how to use **input()** to get information from users and **int()** to convert text to numbers!',
       successCheck: '✅ Your program asks for quantities and shows the order.',
@@ -256,20 +248,6 @@ Ajoute du code pour demander au client:
 
 **Complète cette étape avant de débloquer l'Étape 3.**`,
       starterCode: `# ========================================
-# ÉTAPE 1: PRÉPARER LE MAGASIN 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Bienvenue au Supermarché KiddyKode!")
-print("Voici nos prix:")
-print("Pomme:", apple_price)
-print("Mambo:", mambo_price)
-print("Gâteau:", cake_price)
-print("")
-
-# ========================================
 # ÉTAPE 2: PRENDRE LES COMMANDES 🛒
 # ========================================
 
@@ -284,7 +262,7 @@ mambo_qty = # Demande combien de mambo
 cake_qty = # Demande combien de gâteaux
 
 # Montre la commande du client
-print("\\nTa commande:")
+print("Ta commande:")
 print("Pommes:", apple_qty)
 print("Mambo:", mambo_qty)
 print("Gâteau:", cake_qty)
@@ -295,11 +273,10 @@ print("Gâteau:", cake_qty)
         '💡 Combine-les: int(input("Ta question ici: "))',
         '💡 Le texte dans input() est ce que le client voit'
       ],
-      expectedLogic: [
-        'Utiliser int(input()) pour apple_qty',
-        'Utiliser int(input()) pour mambo_qty',
-        'Utiliser int(input()) pour cake_qty',
-        'Afficher le résumé de la commande'
+      validationRules: [
+        { pattern: 'apple_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for apple_qty', messageFr: 'Utilise int(input()) pour apple_qty' },
+        { pattern: 'mambo_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for mambo_qty', messageFr: 'Utilise int(input()) pour mambo_qty' },
+        { pattern: 'cake_qty\\s*=\\s*int\\s*\\(\\s*input\\s*\\(', message: 'Use int(input()) for cake_qty', messageFr: 'Utilise int(input()) pour cake_qty' }
       ],
       whatYouLearned: '🎯 Tu as appris à utiliser **input()** pour obtenir des informations et **int()** pour convertir du texte en nombres!',
       successCheck: '✅ Ton programme demande les quantités et affiche la commande.',
@@ -336,32 +313,6 @@ Calculate the cost for:
 
 **Complete this step before unlocking Step 4.**`,
       starterCode: `# ========================================
-# STEP 1: SETTING UP THE STORE 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Welcome to KiddyKode Supermarket!")
-print("Here are our prices:")
-print("Apple:", apple_price)
-print("Mambo:", mambo_price)
-print("Cake:", cake_price)
-print("")
-
-# ========================================
-# STEP 2: TAKING CUSTOMER ORDERS 🛒
-# ========================================
-apple_qty = int(input("How many apples? "))
-mambo_qty = int(input("How many mambo? "))
-cake_qty = int(input("How many cakes? "))
-
-print("\\nYour order:")
-print("Apples:", apple_qty)
-print("Mambo:", mambo_qty)
-print("Cake:", cake_qty)
-
-# ========================================
 # STEP 3: CALCULATING SUBTOTALS 🧮
 # ========================================
 
@@ -373,7 +324,7 @@ cost_of_mambo = # Calculate mambo cost
 cost_of_cake = # Calculate cake cost
 
 # Print the subtotals
-print("\\nSubtotals:")
+print("Subtotals:")
 print("Apples:", cost_of_apples)
 print("Mambo:", cost_of_mambo)
 print("Cake:", cost_of_cake)
@@ -384,11 +335,10 @@ print("Cake:", cost_of_cake)
         '💡 Each subtotal = price of that item × how many the customer wants',
         '💡 Store each result in a new variable!'
       ],
-      expectedLogic: [
-        'Calculate cost_of_apples = apple_price * apple_qty',
-        'Calculate cost_of_mambo = mambo_price * mambo_qty',
-        'Calculate cost_of_cake = cake_price * cake_qty',
-        'Print all subtotals'
+      validationRules: [
+        { pattern: 'cost_of_apples\\s*=\\s*apple_price\\s*\\*\\s*apple_qty', message: 'Calculate cost_of_apples = apple_price * apple_qty', messageFr: 'Calcule cost_of_apples = apple_price * apple_qty' },
+        { pattern: 'cost_of_mambo\\s*=\\s*mambo_price\\s*\\*\\s*mambo_qty', message: 'Calculate cost_of_mambo = mambo_price * mambo_qty', messageFr: 'Calcule cost_of_mambo = mambo_price * mambo_qty' },
+        { pattern: 'cost_of_cake\\s*=\\s*cake_price\\s*\\*\\s*cake_qty', message: 'Calculate cost_of_cake = cake_price * cake_qty', messageFr: 'Calcule cost_of_cake = cake_price * cake_qty' }
       ],
       whatYouLearned: '🎯 You learned how to use **multiplication (*)** and store results in **variables**!',
       successCheck: '✅ Your program shows the correct cost for each item.',
@@ -419,32 +369,6 @@ Calcule le coût pour:
 
 **Complète cette étape avant de débloquer l'Étape 4.**`,
       starterCode: `# ========================================
-# ÉTAPE 1: PRÉPARER LE MAGASIN 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Bienvenue au Supermarché KiddyKode!")
-print("Voici nos prix:")
-print("Pomme:", apple_price)
-print("Mambo:", mambo_price)
-print("Gâteau:", cake_price)
-print("")
-
-# ========================================
-# ÉTAPE 2: PRENDRE LES COMMANDES 🛒
-# ========================================
-apple_qty = int(input("Combien de pommes? "))
-mambo_qty = int(input("Combien de mambo? "))
-cake_qty = int(input("Combien de gâteaux? "))
-
-print("\\nTa commande:")
-print("Pommes:", apple_qty)
-print("Mambo:", mambo_qty)
-print("Gâteau:", cake_qty)
-
-# ========================================
 # ÉTAPE 3: CALCULER LES SOUS-TOTAUX 🧮
 # ========================================
 
@@ -456,7 +380,7 @@ cost_of_mambo = # Calcule le coût des mambo
 cost_of_cake = # Calcule le coût du gâteau
 
 # Affiche les sous-totaux
-print("\\nSous-totaux:")
+print("Sous-totaux:")
 print("Pommes:", cost_of_apples)
 print("Mambo:", cost_of_mambo)
 print("Gâteau:", cost_of_cake)
@@ -467,11 +391,10 @@ print("Gâteau:", cost_of_cake)
         '💡 Chaque sous-total = prix de l\'article × combien le client en veut',
         '💡 Stocke chaque résultat dans une nouvelle variable!'
       ],
-      expectedLogic: [
-        'Calculer cost_of_apples = apple_price * apple_qty',
-        'Calculer cost_of_mambo = mambo_price * mambo_qty',
-        'Calculer cost_of_cake = cake_price * cake_qty',
-        'Afficher tous les sous-totaux'
+      validationRules: [
+        { pattern: 'cost_of_apples\\s*=\\s*apple_price\\s*\\*\\s*apple_qty', message: 'Calculate cost_of_apples = apple_price * apple_qty', messageFr: 'Calcule cost_of_apples = apple_price * apple_qty' },
+        { pattern: 'cost_of_mambo\\s*=\\s*mambo_price\\s*\\*\\s*mambo_qty', message: 'Calculate cost_of_mambo = mambo_price * mambo_qty', messageFr: 'Calcule cost_of_mambo = mambo_price * mambo_qty' },
+        { pattern: 'cost_of_cake\\s*=\\s*cake_price\\s*\\*\\s*cake_qty', message: 'Calculate cost_of_cake = cake_price * cake_qty', messageFr: 'Calcule cost_of_cake = cake_price * cake_qty' }
       ],
       whatYouLearned: '🎯 Tu as appris à utiliser la **multiplication (*)** et stocker les résultats dans des **variables**!',
       successCheck: '✅ Ton programme affiche le bon coût pour chaque article.',
@@ -503,34 +426,6 @@ total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
 
 **Complete this step before unlocking Step 5.**`,
       starterCode: `# ========================================
-# STEP 1: SETTING UP THE STORE 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Welcome to KiddyKode Supermarket!")
-print("Here are our prices:")
-print("Apple:", apple_price)
-print("Mambo:", mambo_price)
-print("Cake:", cake_price)
-print("")
-
-# ========================================
-# STEP 2: TAKING CUSTOMER ORDERS 🛒
-# ========================================
-apple_qty = int(input("How many apples? "))
-mambo_qty = int(input("How many mambo? "))
-cake_qty = int(input("How many cakes? "))
-
-# ========================================
-# STEP 3: CALCULATING SUBTOTALS 🧮
-# ========================================
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# ========================================
 # STEP 4: CALCULATING TOTAL BILL 💰
 # ========================================
 
@@ -541,7 +436,7 @@ total_cost = # Add all three costs together
 total_quantity = # Add all three quantities together
 
 # Display the totals
-print("\\n" + "=" * 40)
+print("=" * 40)
 print("TOTAL ITEMS:", total_quantity)
 print("TOTAL BILL:", total_cost)
 print("=" * 40)
@@ -552,10 +447,9 @@ print("=" * 40)
         '💡 total_quantity = apple_qty + mambo_qty + cake_qty',
         '💡 "=" * 40 creates a line of 40 equal signs – it makes things look neat!'
       ],
-      expectedLogic: [
-        'Calculate total_cost by adding all subtotals',
-        'Calculate total_quantity by adding all quantities',
-        'Display both totals with formatting'
+      validationRules: [
+        { pattern: 'total_cost\\s*=', message: 'Define total_cost by adding all three costs together', messageFr: 'Définis total_cost en additionnant les trois coûts' },
+        { pattern: 'total_quantity\\s*=', message: 'Define total_quantity by adding all three quantities together', messageFr: 'Définis total_quantity en additionnant les trois quantités' }
       ],
       whatYouLearned: '🎯 You learned how to use **addition (+)** to combine results and display a summary!',
       successCheck: '✅ Your program shows the total items and total bill correctly.',
@@ -581,34 +475,6 @@ cout_total = cost_of_apples + cost_of_mambo + cost_of_cake
 
 **Complète cette étape avant de débloquer l'Étape 5.**`,
       starterCode: `# ========================================
-# ÉTAPE 1: PRÉPARER LE MAGASIN 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Bienvenue au Supermarché KiddyKode!")
-print("Voici nos prix:")
-print("Pomme:", apple_price)
-print("Mambo:", mambo_price)
-print("Gâteau:", cake_price)
-print("")
-
-# ========================================
-# ÉTAPE 2: PRENDRE LES COMMANDES 🛒
-# ========================================
-apple_qty = int(input("Combien de pommes? "))
-mambo_qty = int(input("Combien de mambo? "))
-cake_qty = int(input("Combien de gâteaux? "))
-
-# ========================================
-# ÉTAPE 3: CALCULER LES SOUS-TOTAUX 🧮
-# ========================================
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# ========================================
 # ÉTAPE 4: CALCULER LA FACTURE TOTALE 💰
 # ========================================
 
@@ -619,7 +485,7 @@ total_cost = # Additionne les trois coûts
 total_quantity = # Additionne les trois quantités
 
 # Affiche les totaux
-print("\\n" + "=" * 40)
+print("=" * 40)
 print("TOTAL ARTICLES:", total_quantity)
 print("FACTURE TOTALE:", total_cost)
 print("=" * 40)
@@ -630,10 +496,9 @@ print("=" * 40)
         '💡 total_quantity = apple_qty + mambo_qty + cake_qty',
         '💡 "=" * 40 crée une ligne de 40 signes égal – ça rend les choses plus jolies!'
       ],
-      expectedLogic: [
-        'Calculer total_cost en additionnant tous les sous-totaux',
-        'Calculer total_quantity en additionnant toutes les quantités',
-        'Afficher les deux totaux avec formatage'
+      validationRules: [
+        { pattern: 'total_cost\\s*=', message: 'Define total_cost by adding all three costs together', messageFr: 'Définis total_cost en additionnant les trois coûts' },
+        { pattern: 'total_quantity\\s*=', message: 'Define total_quantity by adding all three quantities together', messageFr: 'Définis total_quantity en additionnant les trois quantités' }
       ],
       whatYouLearned: '🎯 Tu as appris à utiliser l\'**addition (+)** pour combiner des résultats et afficher un résumé!',
       successCheck: '✅ Ton programme affiche le total des articles et la facture correctement.',
@@ -665,36 +530,6 @@ Create a receipt that shows:
 
 **Complete this step before unlocking Step 6.**`,
       starterCode: `# ========================================
-# STEP 1: SETTING UP THE STORE 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Welcome to KiddyKode Supermarket!")
-print("")
-
-# ========================================
-# STEP 2: TAKING CUSTOMER ORDERS 🛒
-# ========================================
-apple_qty = int(input("How many apples? "))
-mambo_qty = int(input("How many mambo? "))
-cake_qty = int(input("How many cakes? "))
-
-# ========================================
-# STEP 3: CALCULATING SUBTOTALS 🧮
-# ========================================
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# ========================================
-# STEP 4: CALCULATING TOTAL BILL 💰
-# ========================================
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# ========================================
 # STEP 5: PRINTING A RECEIPT 🧾
 # ========================================
 
@@ -725,11 +560,10 @@ print("Thank you for shopping with us!")
         '💡 "=" * 40 makes a divider: ========================================',
         '💡 Don\'t forget column headers: Item, Qty, Price, Total'
       ],
-      expectedLogic: [
-        'Print receipt header with store name',
-        'Print column headers (Item, Qty, Price, Total)',
-        'Print details for apples, mambo, and cake',
-        'Print total bill with divider lines'
+      validationRules: [
+        { pattern: 'print\\s*\\(.*[Ii]tem|print\\s*\\(.*[Aa]rticle', message: 'Print column headers (Item, Qty, Price, Total)', messageFr: 'Imprime les en-têtes des colonnes (Article, Qté, Prix, Total)' },
+        { pattern: 'print\\s*\\(.*apple_qty|print\\s*\\(.*Apple|print\\s*\\(.*Pomme', message: 'Print details for each item (Apple, Mambo, Cake)', messageFr: 'Imprime les détails de chaque article' },
+        { pattern: 'print\\s*\\(.*[Tt]otal|print\\s*\\(.*[Ff]acture', message: 'Print the TOTAL BILL line', messageFr: 'Imprime la ligne FACTURE TOTALE' }
       ],
       whatYouLearned: '🎯 You learned how to **format output** to make it look professional and organized!',
       successCheck: '✅ Your receipt shows a header, item table, and total bill.',
@@ -755,36 +589,6 @@ Crée un reçu qui montre:
 
 **Complète cette étape avant de débloquer l'Étape 6.**`,
       starterCode: `# ========================================
-# ÉTAPE 1: PRÉPARER LE MAGASIN 🏪
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Bienvenue au Supermarché KiddyKode!")
-print("")
-
-# ========================================
-# ÉTAPE 2: PRENDRE LES COMMANDES 🛒
-# ========================================
-apple_qty = int(input("Combien de pommes? "))
-mambo_qty = int(input("Combien de mambo? "))
-cake_qty = int(input("Combien de gâteaux? "))
-
-# ========================================
-# ÉTAPE 3: CALCULER LES SOUS-TOTAUX 🧮
-# ========================================
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# ========================================
-# ÉTAPE 4: CALCULER LA FACTURE TOTALE 💰
-# ========================================
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# ========================================
 # ÉTAPE 5: IMPRIMER UN REÇU 🧾
 # ========================================
 
@@ -814,11 +618,10 @@ print("Merci pour vos achats!")
         '💡 "=" * 40 crée un séparateur: ========================================',
         '💡 N\'oublie pas les en-têtes: Article, Qté, Prix, Total'
       ],
-      expectedLogic: [
-        'Imprimer l\'en-tête du reçu avec le nom du magasin',
-        'Imprimer les en-têtes des colonnes',
-        'Imprimer les détails des pommes, mambo et gâteau',
-        'Imprimer la facture totale avec les lignes de séparation'
+      validationRules: [
+        { pattern: 'print\\s*\\(.*[Ii]tem|print\\s*\\(.*[Aa]rticle', message: 'Print column headers (Item, Qty, Price, Total)', messageFr: 'Imprime les en-têtes des colonnes (Article, Qté, Prix, Total)' },
+        { pattern: 'print\\s*\\(.*apple_qty|print\\s*\\(.*Apple|print\\s*\\(.*Pomme', message: 'Print details for each item (Apple, Mambo, Cake)', messageFr: 'Imprime les détails de chaque article' },
+        { pattern: 'print\\s*\\(.*[Tt]otal|print\\s*\\(.*[Ff]acture', message: 'Print the TOTAL BILL line', messageFr: 'Imprime la ligne FACTURE TOTALE' }
       ],
       whatYouLearned: '🎯 Tu as appris à **formater la sortie** pour la rendre professionnelle et organisée!',
       successCheck: '✅ Ton reçu montre un en-tête, un tableau d\'articles et la facture totale.',
@@ -856,40 +659,6 @@ else:
 
 **Complete this step before unlocking Step 7.**`,
       starterCode: `# ========================================
-# STEPS 1-5: PREVIOUS CODE 🏪🛒🧮💰🧾
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Welcome to KiddyKode Supermarket!")
-print("")
-
-apple_qty = int(input("How many apples? "))
-mambo_qty = int(input("How many mambo? "))
-cake_qty = int(input("How many cakes? "))
-
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# Receipt
-print("=" * 40)
-print("   KIDDYKODE SUPERMARKET")
-print("=" * 40)
-print("Item", "Qty", "Price", "Total")
-print("-" * 40)
-print("Apple", apple_qty, apple_price, cost_of_apples)
-print("Mambo", mambo_qty, mambo_price, cost_of_mambo)
-print("Cake", cake_qty, cake_price, cost_of_cake)
-print("=" * 40)
-print("TOTAL BILL:", total_cost)
-print("=" * 40)
-
-# ========================================
 # STEP 6: PROCESSING PAYMENT 💳
 # ========================================
 
@@ -911,12 +680,10 @@ customer_payment = # Ask how much the customer is paying
         '💡 Change = customer_payment - total_cost',
         '💡 Use if/elif/else to handle all three cases'
       ],
-      expectedLogic: [
-        'Get customer_payment using int(input())',
-        'Use if to check if payment > total_cost',
-        'Use elif to check if payment == total_cost',
-        'Use else for insufficient payment',
-        'Calculate and display change when overpaid'
+      validationRules: [
+        { pattern: 'customer_payment\\s*=\\s*int\\s*\\(\\s*input', message: 'Ask for payment using int(input())', messageFr: 'Demande le paiement avec int(input())' },
+        { pattern: '\\bif\\b.*customer_payment|\\bif\\b.*total_cost', message: 'Use an if statement to check the payment', messageFr: 'Utilise un if pour vérifier le paiement' },
+        { pattern: '\\belif\\b|\\belse\\b', message: 'Use elif or else for other payment cases', messageFr: 'Utilise elif ou else pour les autres cas' }
       ],
       whatYouLearned: '🎯 You learned **conditional statements (if/elif/else)** and how to compare values!',
       successCheck: '✅ Your program handles all three payment scenarios correctly.',
@@ -948,40 +715,6 @@ else:
 
 **Complète cette étape avant de débloquer l'Étape 7.**`,
       starterCode: `# ========================================
-# ÉTAPES 1-5: CODE PRÉCÉDENT 🏪🛒🧮💰🧾
-# ========================================
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("Bienvenue au Supermarché KiddyKode!")
-print("")
-
-apple_qty = int(input("Combien de pommes? "))
-mambo_qty = int(input("Combien de mambo? "))
-cake_qty = int(input("Combien de gâteaux? "))
-
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# Reçu
-print("=" * 40)
-print("   SUPERMARCHÉ KIDDYKODE")
-print("=" * 40)
-print("Article", "Qté", "Prix", "Total")
-print("-" * 40)
-print("Pomme", apple_qty, apple_price, cost_of_apples)
-print("Mambo", mambo_qty, mambo_price, cost_of_mambo)
-print("Gâteau", cake_qty, cake_price, cost_of_cake)
-print("=" * 40)
-print("FACTURE TOTALE:", total_cost)
-print("=" * 40)
-
-# ========================================
 # ÉTAPE 6: TRAITER LE PAIEMENT 💳
 # ========================================
 
@@ -1003,12 +736,10 @@ customer_payment = # Demande combien le client paie
         '💡 Monnaie = customer_payment - total_cost',
         '💡 Utilise if/elif/else pour gérer les trois cas'
       ],
-      expectedLogic: [
-        'Obtenir customer_payment avec int(input())',
-        'Utiliser if pour vérifier si paiement > total_cost',
-        'Utiliser elif pour vérifier si paiement == total_cost',
-        'Utiliser else pour paiement insuffisant',
-        'Calculer et afficher la monnaie si trop payé'
+      validationRules: [
+        { pattern: 'customer_payment\\s*=\\s*int\\s*\\(\\s*input', message: 'Ask for payment using int(input())', messageFr: 'Demande le paiement avec int(input())' },
+        { pattern: '\\bif\\b.*customer_payment|\\bif\\b.*total_cost', message: 'Use an if statement to check the payment', messageFr: 'Utilise un if pour vérifier le paiement' },
+        { pattern: '\\belif\\b|\\belse\\b', message: 'Use elif or else for other payment cases', messageFr: 'Utilise elif ou else pour les autres cas' }
       ],
       whatYouLearned: '🎯 Tu as appris les **instructions conditionnelles (if/elif/else)** et comment comparer des valeurs!',
       successCheck: '✅ Ton programme gère correctement les trois scénarios de paiement.',
@@ -1024,80 +755,22 @@ customer_payment = # Demande combien le client paie
     content: {
       introduction: `# 🎉 Step 7: The Final Professional Receipt!
 
-This is it! The **last step**! Let's make your receipt look truly professional by adding:
-- Payment information
+This is it! The **last coding step**! Let's make your receipt look truly professional by adding:
+- Payment information display
 - Change display
 - A thank you message
 - A clean, structured layout
 
 ## Your Task:
-Put it all together into one beautiful, complete program! Add the finishing touches to make your receipt look like it came from a **real supermarket**.
+Add the finishing touches to make your receipt look like it came from a **real supermarket**:
+1. Print a divider line
+2. Print "PAYMENT:" and the amount paid
+3. Print "CHANGE:" and the change amount (if any)
+4. Print a thank you message
+5. Print the store's motto or slogan
 
 When you're done, you'll have built the **brain of a supermarket cashier system**! 🧠`,
       starterCode: `# ========================================
-#    KIDDYKODE SUPERMARKET SYSTEM
-#    The Complete Cashier Program! 🏪
-# ========================================
-
-# STEP 1: Store Prices
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("=" * 40)
-print("  Welcome to KiddyKode Supermarket!")
-print("         Your Friendly Store!")
-print("=" * 40)
-print("\\nToday's Prices:")
-print("  Apple:", apple_price)
-print("  Mambo:", mambo_price)
-print("  Cake:", cake_price)
-print("")
-
-# STEP 2: Customer Orders
-apple_qty = int(input("How many apples? "))
-mambo_qty = int(input("How many mambo? "))
-cake_qty = int(input("How many cakes? "))
-
-# STEP 3: Subtotals
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# STEP 4: Total
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# STEP 5: Receipt
-print("\\n" + "=" * 40)
-print("      KIDDYKODE SUPERMARKET")
-print("        OFFICIAL RECEIPT")
-print("=" * 40)
-print("Item      Qty    Price    Total")
-print("-" * 40)
-print("Apple    ", apple_qty, "   ", apple_price, "   ", cost_of_apples)
-print("Mambo    ", mambo_qty, "   ", mambo_price, "   ", cost_of_mambo)
-print("Cake     ", cake_qty, "   ", cake_price, "   ", cost_of_cake)
-print("-" * 40)
-print("Total Items:", total_quantity)
-print("TOTAL BILL:", total_cost)
-print("=" * 40)
-
-# STEP 6: Payment
-customer_payment = int(input("\\nPayment amount: "))
-
-if customer_payment > total_cost:
-    change = customer_payment - total_cost
-    print("Payment received:", customer_payment)
-    print("Your change:", change)
-elif customer_payment == total_cost:
-    print("Payment received:", customer_payment)
-    print("Exact payment - no change needed!")
-else:
-    shortfall = total_cost - customer_payment
-    print("Not enough! You still owe:", shortfall)
-
-# ========================================
 # STEP 7: FINAL TOUCHES 🎉
 # ========================================
 
@@ -1113,98 +786,38 @@ else:
 `,
       codeHints: [
         '💡 Use print("=" * 40) to create clean dividers',
+        '💡 Add: print("PAYMENT:", customer_payment)',
         '💡 Add a thank you message like: print("Thank you for shopping with us!")',
-        '💡 Add a fun slogan: print("Come back soon! 😊")',
-        '💡 Make it look clean and professional!'
+        '💡 Add a fun slogan: print("Come back soon! 😊")'
       ],
-      expectedLogic: [
-        'Print payment information section',
-        'Print change information',
-        'Print thank you message',
-        'Print store slogan or closing message'
+      validationRules: [
+        { pattern: 'print\\s*\\(.*[Pp]ayment|print\\s*\\(.*[Pp]aiement', message: 'Print the payment amount', messageFr: 'Affiche le montant du paiement' },
+        { pattern: 'print\\s*\\(.*[Tt]hank|print\\s*\\(.*[Mm]erci', message: 'Add a thank you message', messageFr: 'Ajoute un message de remerciement' }
       ],
       whatYouLearned: '🎯 You learned how to build a **complete program** from start to finish by combining: variables, input, math, formatting, and conditionals!',
       successCheck: '✅ Your full supermarket receipt system runs from start to finish!',
-      motivation: '🎉 **YOU HAVE JUST BUILT THE BRAIN OF A SUPERMARKET CASHIER SYSTEM!** You are now a real programmer! 🧠💻',
-      celebration: '🎉 PROJECT COMPLETE! You built a real supermarket cashier system from scratch! You are a coding superstar! ⭐'
+      motivation: '🚀 Almost there! One more step to see your complete masterpiece!',
+      celebration: 'Step 7 Complete! Your receipt footer is perfect! 🎉'
     },
     contentFr: {
       introduction: `# 🎉 Étape 7: Le Reçu Professionnel Final!
 
-C'est le moment! La **dernière étape**! Rendons ton reçu vraiment professionnel en ajoutant:
-- Les informations de paiement
+C'est le moment! La **dernière étape de code**! Rendons ton reçu vraiment professionnel en ajoutant:
+- L'affichage du paiement
 - L'affichage de la monnaie
 - Un message de remerciement
 - Une mise en page propre et structurée
 
 ## Ta Mission:
-Assemble tout en un seul beau programme complet! Ajoute les touches finales pour que ton reçu ressemble à celui d'un **vrai supermarché**.
+Ajoute les touches finales pour que ton reçu ressemble à celui d'un **vrai supermarché**:
+1. Imprime une ligne de séparation
+2. Imprime "PAIEMENT:" et le montant payé
+3. Imprime "MONNAIE:" et le montant de la monnaie (si applicable)
+4. Imprime un message de remerciement
+5. Imprime le slogan du magasin
 
 Quand tu auras fini, tu auras construit le **cerveau d'un système de caisse de supermarché**! 🧠`,
       starterCode: `# ========================================
-#    SUPERMARCHÉ KIDDYKODE
-#    Le Programme de Caisse Complet! 🏪
-# ========================================
-
-# ÉTAPE 1: Prix du Magasin
-apple_price = 500
-mambo_price = 200
-cake_price = 1500
-
-print("=" * 40)
-print("  Bienvenue au Supermarché KiddyKode!")
-print("       Ton Magasin Préféré!")
-print("=" * 40)
-print("\\nPrix du jour:")
-print("  Pomme:", apple_price)
-print("  Mambo:", mambo_price)
-print("  Gâteau:", cake_price)
-print("")
-
-# ÉTAPE 2: Commandes du Client
-apple_qty = int(input("Combien de pommes? "))
-mambo_qty = int(input("Combien de mambo? "))
-cake_qty = int(input("Combien de gâteaux? "))
-
-# ÉTAPE 3: Sous-totaux
-cost_of_apples = apple_price * apple_qty
-cost_of_mambo = mambo_price * mambo_qty
-cost_of_cake = cake_price * cake_qty
-
-# ÉTAPE 4: Total
-total_cost = cost_of_apples + cost_of_mambo + cost_of_cake
-total_quantity = apple_qty + mambo_qty + cake_qty
-
-# ÉTAPE 5: Reçu
-print("\\n" + "=" * 40)
-print("      SUPERMARCHÉ KIDDYKODE")
-print("        REÇU OFFICIEL")
-print("=" * 40)
-print("Article   Qté    Prix    Total")
-print("-" * 40)
-print("Pomme    ", apple_qty, "   ", apple_price, "   ", cost_of_apples)
-print("Mambo    ", mambo_qty, "   ", mambo_price, "   ", cost_of_mambo)
-print("Gâteau   ", cake_qty, "   ", cake_price, "   ", cost_of_cake)
-print("-" * 40)
-print("Total Articles:", total_quantity)
-print("FACTURE TOTALE:", total_cost)
-print("=" * 40)
-
-# ÉTAPE 6: Paiement
-customer_payment = int(input("\\nMontant du paiement: "))
-
-if customer_payment > total_cost:
-    change = customer_payment - total_cost
-    print("Paiement reçu:", customer_payment)
-    print("Votre monnaie:", change)
-elif customer_payment == total_cost:
-    print("Paiement reçu:", customer_payment)
-    print("Paiement exact - pas de monnaie!")
-else:
-    shortfall = total_cost - customer_payment
-    print("Pas assez! Vous devez encore:", shortfall)
-
-# ========================================
 # ÉTAPE 7: TOUCHES FINALES 🎉
 # ========================================
 
@@ -1220,19 +833,67 @@ else:
 `,
       codeHints: [
         '💡 Utilise print("=" * 40) pour créer des séparateurs propres',
+        '💡 Ajoute: print("PAIEMENT:", customer_payment)',
         '💡 Ajoute un message de remerciement: print("Merci pour vos achats!")',
-        '💡 Ajoute un slogan amusant: print("À bientôt! 😊")',
-        '💡 Fais en sorte que ce soit propre et professionnel!'
+        '💡 Ajoute un slogan amusant: print("À bientôt! 😊")'
       ],
-      expectedLogic: [
-        'Imprimer la section information de paiement',
-        'Imprimer l\'information de la monnaie',
-        'Imprimer un message de remerciement',
-        'Imprimer un slogan ou message de clôture'
+      validationRules: [
+        { pattern: 'print\\s*\\(.*[Pp]ayment|print\\s*\\(.*[Pp]aiement', message: 'Print the payment amount', messageFr: 'Affiche le montant du paiement' },
+        { pattern: 'print\\s*\\(.*[Tt]hank|print\\s*\\(.*[Mm]erci', message: 'Add a thank you message', messageFr: 'Ajoute un message de remerciement' }
       ],
       whatYouLearned: '🎯 Tu as appris à construire un **programme complet** du début à la fin en combinant: variables, entrées, calculs, formatage et conditions!',
       successCheck: '✅ Ton système complet de reçu de supermarché fonctionne du début à la fin!',
-      motivation: '🎉 **TU VIENS DE CONSTRUIRE LE CERVEAU D\'UN SYSTÈME DE CAISSE DE SUPERMARCHÉ!** Tu es maintenant un vrai programmeur! 🧠💻',
+      motivation: '🚀 Presque fini! Encore une étape pour voir ton chef-d\'œuvre complet!',
+      celebration: 'Étape 7 Terminée! Ton pied de page est parfait! 🎉'
+    }
+  },
+  {
+    id: 'step-8',
+    title: 'Step 8 – Your Complete Program!',
+    titleFr: 'Étape 8 – Ton Programme Complet!',
+    type: 'review',
+    content: {
+      introduction: `# 🎉 Your Complete Supermarket Program!
+
+**Congratulations!** Here is the **full program** you built step by step!
+
+Review your code below — this is YOUR creation! Every line was written by YOU!
+
+Click **"Run My Program"** to see your complete supermarket cashier system in action!
+
+🧠 **You have just built the brain of a supermarket cashier system!**`,
+      whatYouLearned: `🎯 You built a **complete program** from scratch using:
+- **Variables** to store prices
+- **input()** to get user data
+- **Math** to calculate costs
+- **Formatting** to create a receipt
+- **Conditionals** to handle payments
+
+You are now a real programmer! 🧠💻`,
+      successCheck: '✅ Your full supermarket receipt system runs from start to finish!',
+      motivation: '🎉 **YOU HAVE JUST BUILT THE BRAIN OF A SUPERMARKET CASHIER SYSTEM!** You are a coding superstar! ⭐',
+      celebration: '🎉 PROJECT COMPLETE! You built a real supermarket cashier system from scratch! You are a coding superstar! ⭐'
+    },
+    contentFr: {
+      introduction: `# 🎉 Ton Programme Complet de Supermarché!
+
+**Félicitations!** Voici le **programme complet** que tu as construit étape par étape!
+
+Regarde ton code ci-dessous — c'est TA création! Chaque ligne a été écrite par TOI!
+
+Clique sur **"Exécuter Mon Programme"** pour voir ton système de caisse complet en action!
+
+🧠 **Tu viens de construire le cerveau d'un système de caisse de supermarché!**`,
+      whatYouLearned: `🎯 Tu as construit un **programme complet** à partir de zéro en utilisant:
+- Des **variables** pour stocker les prix
+- **input()** pour obtenir des données
+- Les **maths** pour calculer les coûts
+- Le **formatage** pour créer un reçu
+- Les **conditions** pour gérer les paiements
+
+Tu es maintenant un vrai programmeur! 🧠💻`,
+      successCheck: '✅ Ton système complet de reçu de supermarché fonctionne du début à la fin!',
+      motivation: '🎉 **TU VIENS DE CONSTRUIRE LE CERVEAU D\'UN SYSTÈME DE CAISSE DE SUPERMARCHÉ!** Tu es une superstar du code! ⭐',
       celebration: '🎉 PROJET TERMINÉ! Tu as construit un vrai système de caisse de supermarché à partir de zéro! Tu es une superstar du code! ⭐'
     }
   }
