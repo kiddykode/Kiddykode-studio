@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download, Leaf, ShoppingCart, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Play, Save, FolderOpen, Trash2, Download, Leaf, ShoppingCart, ArrowRight, Star } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { sampleProjects } from '@/data/tutorials';
 import { ecoHelperProject } from '@/data/ecoHelperProject';
 import { supermarketProject } from '@/data/supermarketProject';
 import { useProgressStore } from '@/stores/progressStore';
+import { useProjectRatingStore } from '@/stores/projectRatingStore';
 
 const CreateMode = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { saveProject, progress } = useProgressStore();
   const isFrench = i18n.language === 'fr';
+  const { getAllRatings } = useProjectRatingStore();
+  const ratings = getAllRatings();
 
   const [code, setCode] = useState(`# Welcome to KiddyKode Studio! 🎉
 # Start coding your amazing project here!
@@ -224,6 +227,12 @@ print("I'm learning to code!")
                   <span className="text-xs text-muted-foreground">
                     {ecoHelperProject.estimatedTime}
                   </span>
+                  {ratings['eco-helper'] && ratings['eco-helper'].count > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-yellow-600">
+                      <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                      {ratings['eco-helper'].average.toFixed(1)} ({ratings['eco-helper'].count})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -255,6 +264,12 @@ print("I'm learning to code!")
                   <span className="text-xs text-muted-foreground">
                     {supermarketProject.estimatedTime}
                   </span>
+                  {ratings['supermarket'] && ratings['supermarket'].count > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-yellow-600">
+                      <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                      {ratings['supermarket'].average.toFixed(1)} ({ratings['supermarket'].count})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

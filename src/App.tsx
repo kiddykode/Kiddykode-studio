@@ -20,6 +20,8 @@ import SupermarketProject from "./pages/SupermarketProject";
 import StoryMode from "./pages/StoryMode";
 import ProgressPage from "./pages/ProgressPage";
 import ParentDashboard from "./pages/ParentDashboard";
+import ProjectFeedback from "./pages/ProjectFeedback";
+import ProjectCertificate from "./pages/ProjectCertificate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +48,8 @@ const App = () => (
           <Route path="/stories" element={<StoryMode />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/parent" element={<ParentDashboard />} />
+          <Route path="/project-feedback" element={<ProjectFeedback />} />
+          <Route path="/project-certificate" element={<ProjectCertificate />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ import Editor from '@monaco-editor/react';
 import Markdown from 'react-markdown';
 import { supermarketProject } from '@/data/supermarketProject';
 import { useProgressStore } from '@/stores/progressStore';
+import { useProjectRatingStore } from '@/stores/projectRatingStore';
 import { Progress } from '@/components/ui/progress';
 import Confetti from 'react-confetti';
 
@@ -78,7 +79,7 @@ const splitPrintArgs = (content: string): string[] => {
   return args;
 };
 
-// Simple Python expression evaluator
+// Simple Python expression evaluator - FIXED: handles numeric addition properly
 const evaluateExpr = (expr: string, variables: Record<string, any>): any => {
   const trimmed = expr.trim();
   
@@ -92,19 +93,38 @@ const evaluateExpr = (expr: string, variables: Record<string, any>): any => {
   const strMul = trimmed.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
   if (strMul) return strMul[1].repeat(parseInt(strMul[2]));
   
-  // String concatenation with +
-  if (trimmed.includes(' + ')) {
-    const parts = trimmed.split(' + ').map(p => {
-      const tp = p.trim();
-      if ((tp.startsWith('"') && tp.endsWith('"')) || (tp.startsWith("'") && tp.endsWith("'"))) {
-        return tp.slice(1, -1);
-      }
-      const sm = tp.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
-      if (sm) return sm[1].repeat(parseInt(sm[2]));
-      if (variables[tp] !== undefined) return String(variables[tp]);
-      return tp;
+  // Check if expression contains + operator (not inside strings)
+  if (trimmed.includes('+') || trimmed.includes('-') || trimmed.includes('*') || trimmed.includes('/')) {
+    // Substitute variables into the expression
+    const substituted = trimmed.replace(/\b([a-zA-Z_]\w*)\b/g, (match) => {
+      if (variables[match] !== undefined) return String(variables[match]);
+      return match;
     });
-    return parts.join('');
+    
+    // Check if it's a pure arithmetic expression (only numbers and operators)
+    const isArithmetic = /^[\d\s+\-*/().]+$/.test(substituted);
+    if (isArithmetic) {
+      try {
+        return eval(substituted);
+      } catch {
+        return substituted;
+      }
+    }
+    
+    // Mixed string + variable concatenation (e.g., "Hello " + name)
+    if (trimmed.includes(' + ')) {
+      const parts = trimmed.split(' + ').map(p => {
+        const tp = p.trim();
+        if ((tp.startsWith('"') && tp.endsWith('"')) || (tp.startsWith("'") && tp.endsWith("'"))) {
+          return tp.slice(1, -1);
+        }
+        const sm = tp.match(/^["'](.+?)["']\s*\*\s*(\d+)$/);
+        if (sm) return sm[1].repeat(parseInt(sm[2]));
+        if (variables[tp] !== undefined) return String(variables[tp]);
+        return tp;
+      });
+      return parts.join('');
+    }
   }
   
   // Variable reference
@@ -137,6 +157,72 @@ const evaluateCondition = (condition: string, variables: Record<string, any>): b
   } catch {
     return false;
   }
+};
+
+// Syntax checker for common Python errors
+const checkSyntaxErrors = (code: string, isFrench: boolean): string[] => {
+  const errors: string[] = [];
+  const lines = code.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    
+    // Check for input() without quotes around the prompt
+    const badInput = trimmed.match(/input\s*\(\s*[^"'\s)][^)]*\)/);
+    if (badInput && !trimmed.match(/input\s*\(\s*["']/)) {
+      errors.push(
+        isFrench
+          ? `Ligne ${i + 1}: Le texte dans input() doit être entre guillemets. Ex: input("Ton texte ici")`
+          : `Line ${i + 1}: The text inside input() must be in quotes. Ex: input("Your text here")`
+      );
+    }
+    
+    // Check for unmatched parentheses
+    let parenCount = 0;
+    for (const char of trimmed) {
+      if (char === '(') parenCount++;
+      if (char === ')') parenCount--;
+    }
+    if (parenCount !== 0) {
+      errors.push(
+        isFrench
+          ? `Ligne ${i + 1}: Parenthèses non équilibrées — vérifie que chaque ( a un ) correspondant`
+          : `Line ${i + 1}: Unmatched parentheses — make sure every ( has a matching )`
+      );
+    }
+    
+    // Check for unmatched quotes
+    let singleQuotes = 0;
+    let doubleQuotes = 0;
+    let escaped = false;
+    for (const char of trimmed) {
+      if (escaped) { escaped = false; continue; }
+      if (char === '\\') { escaped = true; continue; }
+      if (char === "'") singleQuotes++;
+      if (char === '"') doubleQuotes++;
+    }
+    if (singleQuotes % 2 !== 0 && doubleQuotes % 2 !== 0) {
+      errors.push(
+        isFrench
+          ? `Ligne ${i + 1}: Guillemets non fermés — vérifie que chaque guillemet a son pair`
+          : `Line ${i + 1}: Unclosed quotes — make sure every quote has a matching one`
+      );
+    }
+    
+    // Check for assignment with no value (e.g., "apple_price = # comment")
+    const assignWithComment = trimmed.match(/^(\w+)\s*=\s*#/);
+    if (assignWithComment) {
+      errors.push(
+        isFrench
+          ? `Ligne ${i + 1}: "${assignWithComment[1]}" n'a pas de valeur. Remplace le commentaire par une valeur.`
+          : `Line ${i + 1}: "${assignWithComment[1]}" has no value. Replace the comment with a value.`
+      );
+    }
+  }
+  
+  return errors;
 };
 
 // Execute Python code with given input values
@@ -206,7 +292,6 @@ const executePython = (code: string, inputVals: Record<string, string>): string 
     // Inside indented block
     if (indent > baseIndent && inIfBlock) {
       if (skipBlock) continue;
-      // Process the line (fall through to handlers below)
     }
 
     // Back to base indent - reset if block
@@ -260,18 +345,22 @@ const SupermarketProject = () => {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
   const { completeLesson } = useProgressStore();
+  const { saveProgress, getProgress, clearProgress } = useProjectRatingStore();
   const isFrench = i18n.language === 'fr';
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [completedCodes, setCompletedCodes] = useState<Record<string, string>>({});
+  // Load saved progress
+  const savedData = getProgress('supermarket');
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(savedData?.currentStepIndex || 0);
+  const [completedSteps, setCompletedSteps] = useState<string[]>(savedData?.completedSteps || []);
+  const [completedCodes, setCompletedCodes] = useState<Record<string, string>>(savedData?.completedCodes || {});
   const [showHints, setShowHints] = useState(false);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [showCelebration, setShowCelebration] = useState(false);
   const [isValidated, setIsValidated] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+  const [allInputValues, setAllInputValues] = useState<Record<string, string>>(savedData?.inputValues || {});
   const [hasRun, setHasRun] = useState(false);
 
   const steps = supermarketProject.phases;
@@ -279,16 +368,33 @@ const SupermarketProject = () => {
   const content = isFrench ? currentStep.contentFr : currentStep.content;
   const title = isFrench ? currentStep.titleFr : currentStep.title;
 
-  // Build code for current step from previous completed code + current new section
+  // Auto-save progress whenever state changes
+  const persistProgress = useCallback(() => {
+    saveProgress('supermarket', {
+      currentStepIndex,
+      completedSteps,
+      completedCodes,
+      inputValues: allInputValues,
+    });
+  }, [currentStepIndex, completedSteps, completedCodes, allInputValues, saveProgress]);
+
+  useEffect(() => {
+    persistProgress();
+  }, [persistProgress]);
+
+  // Build code for current step
   useEffect(() => {
     if (currentStep.type === 'review') {
-      // Step 8: show full combined code from all completed steps
       const lastStepId = steps[currentStepIndex - 1]?.id;
       setCode(completedCodes[lastStepId] || '');
+    } else if (completedCodes[currentStep.id]) {
+      // If this step was already completed, show the completed code
+      setCode(completedCodes[currentStep.id]);
+      setIsValidated(true);
+      setHasRun(true);
     } else if (currentStepIndex === 0) {
       setCode(content.starterCode || '');
     } else {
-      // Find the most recent completed code
       let previousCode = '';
       for (let i = currentStepIndex - 1; i >= 0; i--) {
         if (completedCodes[steps[i].id]) {
@@ -301,14 +407,21 @@ const SupermarketProject = () => {
     }
     setOutput('');
     setShowHints(false);
-    setIsValidated(false);
-    setValidationErrors([]);
-    setHasRun(false);
-    setInputValues({});
+    if (!completedCodes[currentStep.id]) {
+      setIsValidated(false);
+      setValidationErrors([]);
+      setHasRun(false);
+    }
   }, [currentStepIndex]);
 
   // Parse input calls from current code
   const inputPrompts = useMemo(() => parseInputCalls(code), [code]);
+
+  // Use allInputValues as the single source for input values
+  const inputValues = allInputValues;
+  const setInputValues = (updater: (prev: Record<string, string>) => Record<string, string>) => {
+    setAllInputValues(updater);
+  };
 
   const validateCode = (): { valid: boolean; errors: string[] } => {
     const rules = content.validationRules;
@@ -325,6 +438,16 @@ const SupermarketProject = () => {
   };
 
   const runCode = () => {
+    // First check for syntax errors
+    const syntaxErrors = checkSyntaxErrors(code, isFrench);
+    if (syntaxErrors.length > 0) {
+      setOutput(syntaxErrors.map(e => `❌ ${e}`).join('\n'));
+      setIsValidated(false);
+      setValidationErrors(syntaxErrors);
+      setHasRun(true);
+      return;
+    }
+
     // Check if all input fields are filled
     for (const prompt of inputPrompts) {
       if (!inputValues[prompt.varName] && inputValues[prompt.varName] !== '0') {
@@ -339,7 +462,6 @@ const SupermarketProject = () => {
       const result = executePython(code, inputValues);
       setOutput(result || (isFrench ? '✅ Code exécuté avec succès!' : '✅ Code ran successfully!'));
       
-      // Validate
       const { valid, errors } = validateCode();
       setIsValidated(valid);
       setValidationErrors(errors);
@@ -354,7 +476,6 @@ const SupermarketProject = () => {
   const completeStep = () => {
     if (!isValidated && currentStep.type !== 'review') return;
     
-    // Store completed code
     setCompletedCodes(prev => ({ ...prev, [currentStep.id]: code }));
     
     if (!completedSteps.includes(currentStep.id)) {
@@ -368,8 +489,15 @@ const SupermarketProject = () => {
         setCurrentStepIndex(currentStepIndex + 1);
       }, 2500);
     } else {
+      // Project complete! Navigate to feedback
       setShowCelebration(true);
       completeLesson(`supermarket-${currentStep.id}`);
+      clearProgress('supermarket');
+      setTimeout(() => {
+        setShowCelebration(false);
+        const projectName = isFrench ? supermarketProject.titleFr : supermarketProject.title;
+        navigate(`/project-feedback?project=supermarket&name=${encodeURIComponent(projectName)}`);
+      }, 3000);
     }
   };
 
@@ -470,6 +598,20 @@ const SupermarketProject = () => {
               <div className="prose dark:prose-invert max-w-none">
                 <Markdown>{content.introduction}</Markdown>
               </div>
+              
+              {/* Special note for Step 2 about quantities */}
+              {currentStep.id === 'step-2' && (
+                <div className="mt-4 p-4 bg-amber-100 dark:bg-amber-900/30 rounded-xl border-2 border-amber-300 dark:border-amber-700">
+                  <p className="text-sm font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                    📝 {isFrench ? 'NOTE IMPORTANTE:' : 'IMPORTANT NOTE:'}
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    {isFrench 
+                      ? 'Souviens-toi des quantités que tu entres ici! Tu en auras besoin dans les prochaines étapes pour les calculs. Utilise les mêmes chiffres tout au long du projet!' 
+                      : 'Remember the quantities you enter here! You will need them in the next steps for calculations. Use the same numbers throughout the project!'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Code Editor - for coding and review steps */}
@@ -530,7 +672,6 @@ const SupermarketProject = () => {
                     value={code}
                     onChange={(value) => {
                       setCode(value || '');
-                      // Reset validation when code changes
                       setIsValidated(false);
                       setHasRun(false);
                     }}
@@ -595,7 +736,6 @@ const SupermarketProject = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
-                        // Reset to original starter code for current step
                         if (currentStepIndex === 0) {
                           setCode(content.starterCode || '');
                         } else {
