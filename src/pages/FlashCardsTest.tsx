@@ -1,15 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Layers, CheckCircle, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Layers, CheckCircle, XCircle, ChevronRight, ChevronLeft, RotateCcw, Trophy } from 'lucide-react';
 import { flashCardSets } from '@/data/tests';
 import { useProgressStore } from '@/stores/progressStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+
+
+interface ShuffledCard {
+  id: string;
+  question: string;
+  questionFr: string;
+  answer: string;
+  answerFr: string;
+  options: string[];
+  optionsFr: string[];
+  correctIndex: number;
+}
+
+// Shuffle array using Fisher-Yates algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Shuffle options and update correct index
+const shuffleCardOptions = (card: typeof flashCardSets[0]['cards'][0]): ShuffledCard => {
+  const indices = [0, 1, 2, 3];
+  const shuffledIndices = shuffleArray(indices);
+  
+  const newOptions = shuffledIndices.map(i => card.options[i]);
+  const newOptionsFr = shuffledIndices.map(i => card.optionsFr[i]);
+  const newCorrectIndex = shuffledIndices.indexOf(card.correctIndex);
+  
+  return {
+    ...card,
+    options: newOptions,
+    optionsFr: newOptionsFr,
+    correctIndex: newCorrectIndex,
+  };
+};
 
 const FlashCardsTest = () => {
   const navigate = useNavigate();
@@ -19,13 +57,24 @@ const FlashCardsTest = () => {
 
   const [selectedSet, setSelectedSet] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [knownCards, setKnownCards] = useState<Set<string>>(new Set());
+  const [answers, setAnswers] = useState<{ cardId: string; correct: boolean }[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0); // Used to trigger re-shuffle
+
+  // Shuffle cards when set is selected or shuffleKey changes
+  const shuffledCards = useMemo(() => {
+    const set = flashCardSets.find(s => s.id === selectedSet);
+    if (!set) return [];
+    
+    // Shuffle card order and shuffle options within each card
+    const shuffledOrder = shuffleArray(set.cards);
+    return shuffledOrder.map(card => shuffleCardOptions(card));
+  }, [selectedSet, shuffleKey]);
 
   const currentSet = flashCardSets.find(s => s.id === selectedSet);
-  const currentCard = currentSet?.cards[currentCardIndex];
+  const currentCard = shuffledCards[currentCardIndex];
 
   const getSetProgress = (setId: string) => {
     const set = flashCardSets.find(s => s.id === setId);
@@ -39,10 +88,20 @@ const FlashCardsTest = () => {
   const handleStartSet = (setId: string) => {
     setSelectedSet(setId);
     setCurrentCardIndex(0);
-    setIsFlipped(false);
     setSelectedAnswer(null);
     setIsCorrect(null);
-    setKnownCards(new Set());
+    setAnswers([]);
+    setShowSummary(false);
+    setShuffleKey(prev => prev + 1); // Trigger new shuffle
+  };
+
+  const handleRetry = () => {
+    setCurrentCardIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setAnswers([]);
+    setShowSummary(false);
+    setShuffleKey(prev => prev + 1); // Trigger new shuffle with different order
   };
 
   const handleOptionClick = (optionIndex: number) => {
@@ -52,37 +111,37 @@ const FlashCardsTest = () => {
     const correct = optionIndex === currentCard?.correctIndex;
     setIsCorrect(correct);
     
-    if (correct) {
-      // Flip to show answer after a brief delay
-      setTimeout(() => {
-        setIsFlipped(true);
-        if (currentCard) {
-          setKnownCards(prev => new Set([...prev, currentCard.id]));
-          completeLesson(`test-flashcards-${currentCard.id}`);
-        }
-      }, 800);
+    if (currentCard) {
+      setAnswers(prev => [...prev, { cardId: currentCard.id, correct }]);
+      if (correct) {
+        completeLesson(`test-flashcards-${currentCard.id}`);
+      }
     }
   };
 
   const handleNextCard = () => {
-    if (!currentSet) return;
+    if (!currentSet || selectedAnswer === null) return;
     
-    if (currentCardIndex < currentSet.cards.length - 1) {
+    if (currentCardIndex < shuffledCards.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
-      setIsFlipped(false);
       setSelectedAnswer(null);
       setIsCorrect(null);
     } else {
-      setSelectedSet(null);
+      // Show summary at the end
+      setShowSummary(true);
     }
   };
 
   const handlePrevCard = () => {
     if (currentCardIndex > 0) {
       setCurrentCardIndex(prev => prev - 1);
-      setIsFlipped(false);
-      setSelectedAnswer(null);
-      setIsCorrect(null);
+      // Show the previous answer state
+      const prevAnswer = answers[currentCardIndex - 1];
+      if (prevAnswer) {
+        const prevCard = shuffledCards[currentCardIndex - 1];
+        setSelectedAnswer(prevCard.correctIndex);
+        setIsCorrect(prevAnswer.correct);
+      }
     }
   };
 
@@ -95,6 +154,16 @@ const FlashCardsTest = () => {
     }
   };
 
+  const getScoreMessage = (score: number, total: number) => {
+    const percentage = (score / total) * 100;
+    if (percentage === 100) return isFrench ? '🏆 Parfait! Tu es un génie!' : '🏆 Perfect! You\'re a genius!';
+    if (percentage >= 80) return isFrench ? '🌟 Excellent travail!' : '🌟 Excellent work!';
+    if (percentage >= 60) return isFrench ? '👍 Bon travail! Continue!' : '👍 Good job! Keep going!';
+    if (percentage >= 40) return isFrench ? '💪 Pas mal! Tu peux faire mieux!' : '💪 Not bad! You can do better!';
+    return isFrench ? '📚 Continue à pratiquer!' : '📚 Keep practicing!';
+  };
+
+  // Set selection screen
   if (!selectedSet) {
     return (
       <div className="min-h-screen bg-background">
@@ -175,155 +244,251 @@ const FlashCardsTest = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-kiddykode-purple text-white p-4">
-        <div className="container mx-auto flex items-center gap-4">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSelectedSet(null)}
-            className="p-2 rounded-xl hover:bg-white/20 transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </motion.button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">
-              {isFrench ? currentSet?.titleFr : currentSet?.title}
-            </h1>
-            <Progress 
-              value={((currentCardIndex + 1) / (currentSet?.cards.length || 1)) * 100} 
-              className="mt-2 h-2"
-            />
-          </div>
-          <span className="text-sm">
-            {currentCardIndex + 1} / {currentSet?.cards.length}
-          </span>
-        </div>
-      </header>
+  // Summary screen
+  if (showSummary) {
+    const correctCount = answers.filter(a => a.correct).length;
+    const totalCount = answers.length;
+    const percentage = Math.round((correctCount / totalCount) * 100);
 
-      <section className="container mx-auto px-4 py-8 max-w-2xl">
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="bg-kiddykode-purple text-white p-4">
+          <div className="container mx-auto flex items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSelectedSet(null)}
+              className="p-2 rounded-xl hover:bg-white/20 transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </motion.button>
+            <div>
+              <h1 className="text-xl font-bold">
+                {isFrench ? 'Résultats' : 'Results'} - {isFrench ? currentSet?.titleFr : currentSet?.title}
+              </h1>
+            </div>
+          </div>
+        </header>
+
+        <section className="container mx-auto px-4 py-8 max-w-lg">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <Card className="text-center overflow-hidden">
+              <div className={`p-6 ${percentage >= 60 ? 'bg-gradient-to-br from-kiddykode-green to-kiddykode-blue-light' : 'bg-gradient-to-br from-kiddykode-yellow to-kiddykode-orange'}`}>
+                <Trophy className={`w-16 h-16 mx-auto mb-4 ${percentage >= 60 ? 'text-white' : 'text-kiddykode-blue-dark'}`} />
+                <h2 className={`text-4xl font-bold ${percentage >= 60 ? 'text-white' : 'text-kiddykode-blue-dark'}`}>
+                  {correctCount} / {totalCount}
+                </h2>
+                <p className={`text-lg mt-2 ${percentage >= 60 ? 'text-white/90' : 'text-kiddykode-blue-dark/80'}`}>
+                  {percentage}% {isFrench ? 'correct' : 'correct'}
+                </p>
+              </div>
+              
+              <CardContent className="p-6">
+                <p className="text-xl font-semibold mb-6">
+                  {getScoreMessage(correctCount, totalCount)}
+                </p>
+                
+                {/* Answer breakdown */}
+                <div className="grid grid-cols-7 gap-2 mb-6">
+                  {answers.map((answer, index) => (
+                    <div
+                      key={index}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                        answer.correct ? 'bg-kiddykode-green' : 'bg-red-500'
+                      }`}
+                    >
+                      {index + 1}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={handleRetry}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    {isFrench ? 'Réessayer' : 'Try Again'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedSet(null)}
+                  >
+                    {isFrench ? 'Choisir un autre sujet' : 'Choose Another Topic'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </section>
+      </div>
+    );
+  }
+
+  const letterColors = [
+    'bg-[hsl(0_70%_65%)]',    // A - coral/red
+    'bg-kiddykode-green',      // B - green
+    'bg-[hsl(200_70%_55%)]',   // C - blue
+    'bg-kiddykode-yellow',     // D - yellow
+  ];
+
+  const letterTextColors = [
+    'text-[hsl(0_70%_65%)]',
+    'text-kiddykode-green',
+    'text-[hsl(200_70%_55%)]',
+    'text-kiddykode-yellow',
+  ];
+
+  // Quiz screen
+  return (
+    <div className="min-h-screen bg-[hsl(0_0%_33%)] flex flex-col">
+      {/* Top bar with back + progress */}
+      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setSelectedSet(null)}
+          className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </motion.button>
+        <div className="flex-1">
+          <Progress 
+            value={((currentCardIndex + 1) / shuffledCards.length) * 100} 
+            className="h-2 bg-white/20"
+          />
+        </div>
+        <span className="text-white/70 text-sm font-bold">
+          {currentCardIndex + 1}/{shuffledCards.length}
+        </span>
+      </div>
+
+      {/* Main content area */}
+      <section className="flex-1 flex flex-col items-center justify-center px-4 py-6 max-w-lg mx-auto w-full">
         <AnimatePresence mode="wait">
           {currentCard && (
             <motion.div
-              key={currentCard.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="perspective-1000"
+              key={currentCard.id + shuffleKey}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="w-full flex flex-col items-center"
             >
-              {/* Alert for feedback */}
+              {/* Header: Python Quiz / KiddyKode */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl md:text-4xl font-black text-white">
+                  Python <span className="text-kiddykode-yellow">Quiz</span>
+                </h1>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <span className="h-[2px] w-8 bg-white/40" />
+                  <span className="text-sm font-bold">
+                    <span className="text-kiddykode-orange">K</span>
+                    <span className="text-[hsl(0_70%_65%)]">i</span>
+                    <span className="text-kiddykode-yellow">d</span>
+                    <span className="text-[hsl(200_70%_55%)]">d</span>
+                    <span className="text-kiddykode-green">y</span>
+                    <span className="text-white">K</span>
+                    <span className="text-kiddykode-orange">o</span>
+                    <span className="text-kiddykode-yellow">d</span>
+                    <span className="text-kiddykode-green">e</span>
+                  </span>
+                  <span className="h-[2px] w-8 bg-white/40" />
+                </div>
+              </div>
+
+              {/* Question text */}
+              <p className="text-white text-xl md:text-2xl font-semibold text-center leading-relaxed mb-8 px-2">
+                {isFrench ? currentCard.questionFr : currentCard.question}
+              </p>
+
+              {/* Feedback alert */}
               <AnimatePresence>
                 {selectedAnswer !== null && (
                   <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="mb-4"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="w-full mb-4"
                   >
-                    <Alert className={`border-2 ${isCorrect 
-                      ? 'bg-green-50 border-green-500 dark:bg-green-950/50' 
-                      : 'bg-red-50 border-red-500 dark:bg-red-950/50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isCorrect ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-red-600" />
-                        )}
-                        <AlertDescription className={`font-semibold ${isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                          {isCorrect 
-                            ? (isFrench ? '🎉 Bonne réponse!' : '🎉 Correct Answer!') 
-                            : (isFrench ? '❌ Mauvaise réponse, essaie encore!' : '❌ Wrong Answer, try again!')}
-                        </AlertDescription>
-                      </div>
-                    </Alert>
+                    <div className={`rounded-2xl p-4 flex items-center gap-3 ${
+                      isCorrect 
+                        ? 'bg-kiddykode-green/20 border-2 border-kiddykode-green/50' 
+                        : 'bg-[hsl(0_70%_65%)]/20 border-2 border-[hsl(0_70%_65%)]/50'
+                    }`}>
+                      {isCorrect ? (
+                        <CheckCircle className="w-6 h-6 text-kiddykode-green shrink-0" />
+                      ) : (
+                        <XCircle className="w-6 h-6 text-[hsl(0_70%_65%)] shrink-0" />
+                      )}
+                      <p className={`font-bold text-sm ${isCorrect ? 'text-kiddykode-green' : 'text-[hsl(0_70%_65%)]'}`}>
+                        {isCorrect 
+                          ? (isFrench ? '🎉 Bonne réponse!' : '🎉 Correct!') 
+                          : (isFrench 
+                              ? `❌ La bonne réponse: ${currentCard.optionsFr[currentCard.correctIndex]}` 
+                              : `❌ Correct answer: ${currentCard.options[currentCard.correctIndex]}`)}
+                      </p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <motion.div
-                className="relative w-full min-h-64"
-                animate={{ rotateY: isFlipped ? 180 : 0 }}
-                transition={{ duration: 0.6 }}
-                style={{ transformStyle: 'preserve-3d' }}
-              >
-                {/* Front - Question with MCQ options */}
-                <div 
-                  className={`bg-gradient-to-br from-kiddykode-purple to-primary rounded-3xl p-6 text-white shadow-xl ${
-                    isFlipped ? 'invisible absolute inset-0' : ''
-                  }`}
-                  style={{ backfaceVisibility: 'hidden' }}
-                >
-                  <p className="text-xl font-semibold text-center mb-6">
-                    {isFrench ? currentCard.questionFr : currentCard.question}
-                  </p>
+              {/* Options - pill shaped with colored letter circles */}
+              <div className="w-full space-y-2">
+                {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
+                  const isSelected = selectedAnswer === index;
+                  const isCorrectOption = index === currentCard.correctIndex;
+                  const showResult = selectedAnswer !== null;
+
+                  let pillBg = 'bg-white';
+                  let textColor = letterTextColors[index] || 'text-foreground';
+                  let ringClass = '';
                   
-                  {/* MCQ Options */}
-                  <div className="grid gap-3">
-                    {(isFrench ? currentCard.optionsFr : currentCard.options).map((option, index) => {
-                      const isSelected = selectedAnswer === index;
-                      const isCorrectOption = index === currentCard.correctIndex;
-                      const showResult = selectedAnswer !== null;
-                      
-                      let optionClass = 'bg-white/20 hover:bg-white/30 border-transparent';
-                      if (showResult && isSelected) {
-                        optionClass = isCorrectOption 
-                          ? 'bg-green-500 border-green-300 ring-2 ring-green-300' 
-                          : 'bg-red-500 border-red-300 ring-2 ring-red-300 animate-shake';
-                      } else if (showResult && isCorrectOption && !isCorrect) {
-                        optionClass = 'bg-green-500/50 border-green-300';
-                      }
-                      
-                      return (
-                        <motion.button
-                          key={index}
-                          whileHover={selectedAnswer === null ? { scale: 1.02 } : {}}
-                          whileTap={selectedAnswer === null ? { scale: 0.98 } : {}}
-                          onClick={() => handleOptionClick(index)}
-                          disabled={selectedAnswer !== null && isCorrect}
-                          className={`w-full p-4 rounded-xl border-2 text-left font-medium transition-all duration-200 ${optionClass} ${
-                            selectedAnswer === null ? 'cursor-pointer' : isCorrect ? 'cursor-default' : 'cursor-pointer'
-                          }`}
-                        >
-                          <span className="flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center font-bold">
-                              {String.fromCharCode(65 + index)}
-                            </span>
-                            {option}
-                          </span>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  if (showResult) {
+                    if (isCorrectOption) {
+                      pillBg = 'bg-kiddykode-green/20';
+                      ringClass = 'ring-2 ring-kiddykode-green/60';
+                      textColor = 'text-kiddykode-green';
+                    } else if (isSelected && !isCorrectOption) {
+                      pillBg = 'bg-[hsl(0_70%_65%)]/20';
+                      ringClass = 'ring-2 ring-[hsl(0_70%_65%)]/60';
+                      textColor = 'text-[hsl(0_70%_65%)]';
+                    } else {
+                      pillBg = 'bg-white/50';
+                    }
+                  }
 
-                {/* Back - Answer */}
-                <div 
-                  className={`bg-gradient-to-br from-kiddykode-green to-kiddykode-blue-light rounded-3xl p-8 flex flex-col items-center justify-center text-white shadow-xl min-h-64 ${
-                    !isFlipped ? 'invisible absolute inset-0' : ''
-                  }`}
-                  style={{ 
-                    backfaceVisibility: 'hidden',
-                    transform: 'rotateY(180deg)'
-                  }}
-                >
-                  <CheckCircle className="w-16 h-16 mb-4 text-white/90" />
-                  <p className="text-2xl font-bold text-center">
-                    {isFrench ? currentCard.answerFr : currentCard.answer}
-                  </p>
-                  <p className="text-white/80 mt-2">
-                    {isFrench ? '🎉 Excellent travail!' : '🎉 Great job!'}
-                  </p>
-                </div>
-              </motion.div>
+                  return (
+                    <motion.button
+                      key={index}
+                      whileHover={selectedAnswer === null ? { scale: 1.02 } : {}}
+                      whileTap={selectedAnswer === null ? { scale: 0.98 } : {}}
+                      onClick={() => handleOptionClick(index)}
+                      disabled={selectedAnswer !== null}
+                      className={`w-full flex items-center gap-3 rounded-full px-2 py-2 transition-all duration-200 ${pillBg} ${ringClass} ${
+                        selectedAnswer === null ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                      }`}
+                    >
+                      <span className={`w-8 h-8 rounded-full ${letterColors[index]} flex items-center justify-center text-white font-black text-sm shrink-0`}>
+                        {String.fromCharCode(65 + index)}
+                      </span>
+                      <span className={`font-bold text-sm ${showResult ? textColor : (letterTextColors[index] || 'text-foreground')}`}>
+                        {option}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
 
-              <div className="flex gap-3 mt-6">
+              {/* Navigation buttons */}
+              <div className="flex gap-3 mt-8 w-full">
                 <Button
                   variant="outline"
                   onClick={handlePrevCard}
                   disabled={currentCardIndex === 0}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 border-white/30 text-white hover:bg-white/10 bg-transparent"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {isFrench ? 'Précédent' : 'Previous'}
@@ -331,12 +496,12 @@ const FlashCardsTest = () => {
 
                 <Button
                   onClick={handleNextCard}
-                  disabled={!isFlipped}
-                  className="flex-1 flex items-center justify-center gap-2"
+                  disabled={selectedAnswer === null}
+                  className="flex-1 flex items-center justify-center gap-2 bg-kiddykode-yellow text-secondary hover:bg-kiddykode-yellow/90 font-bold"
                 >
-                  {currentCardIndex < (currentSet?.cards.length || 1) - 1 
+                  {currentCardIndex < shuffledCards.length - 1 
                     ? (isFrench ? 'Suivant' : 'Next')
-                    : (isFrench ? 'Terminer' : 'Finish')}
+                    : (isFrench ? 'Voir les résultats' : 'See Results')}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>

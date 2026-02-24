@@ -1,14 +1,45 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, HelpCircle, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
-import { mcqSets } from '@/data/tests';
+import { ArrowLeft, HelpCircle } from 'lucide-react';
+import { mcqSets, MCQQuestion } from '@/data/mcqData';
 import { useProgressStore } from '@/stores/progressStore';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import MCQSetCard from '@/components/mcq/MCQSetCard';
+import MCQQuestionCard from '@/components/mcq/MCQQuestionCard';
+import MCQSummary from '@/components/mcq/MCQSummary';
+
+// Fisher-Yates shuffle
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Shuffle options and update correct index
+const shuffleQuestionOptions = (question: MCQQuestion, isFrench: boolean): MCQQuestion => {
+  const options = isFrench ? question.optionsFr : question.options;
+  const correctAnswer = options[question.correctIndex];
+  
+  const shuffledOptions = shuffleArray(options);
+  const newCorrectIndex = shuffledOptions.indexOf(correctAnswer);
+  
+  return {
+    ...question,
+    options: isFrench ? question.options : shuffledOptions,
+    optionsFr: isFrench ? shuffledOptions : question.optionsFr,
+    correctIndex: newCorrectIndex,
+  };
+};
+
+interface Answer {
+  questionId: string;
+  correct: boolean;
+}
 
 const MCQTest = () => {
   const navigate = useNavigate();
@@ -20,10 +51,20 @@ const MCQTest = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [score, setScore] = useState(0);
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0);
 
   const currentSet = mcqSets.find(s => s.id === selectedSet);
-  const currentQuestion = currentSet?.questions[currentQuestionIndex];
+
+  // Shuffle questions and options when set is selected or shuffleKey changes
+  const shuffledQuestions = useMemo(() => {
+    if (!currentSet) return [];
+    const shuffledOrder = shuffleArray(currentSet.questions);
+    return shuffledOrder.map(q => shuffleQuestionOptions(q, isFrench));
+  }, [selectedSet, shuffleKey, isFrench]);
+
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   const getSetProgress = (setId: string) => {
     const set = mcqSets.find(s => s.id === setId);
@@ -39,7 +80,9 @@ const MCQTest = () => {
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setShowResult(false);
-    setScore(0);
+    setAnswers([]);
+    setShowSummary(false);
+    setShuffleKey(prev => prev + 1);
   };
 
   const handleSelectAnswer = (index: number) => {
@@ -49,52 +92,60 @@ const MCQTest = () => {
 
   const handleSubmitAnswer = () => {
     if (selectedAnswer === null || !currentQuestion) return;
-    
+
     const isCorrect = selectedAnswer === currentQuestion.correctIndex;
     if (isCorrect) {
-      setScore(prev => prev + 1);
       completeLesson(`test-mcq-${currentQuestion.id}`);
     }
+    
+    setAnswers(prev => [...prev, { questionId: currentQuestion.id, correct: isCorrect }]);
     setShowResult(true);
   };
 
   const handleNextQuestion = () => {
-    if (!currentSet) return;
-    
-    if (currentQuestionIndex < currentSet.questions.length - 1) {
+    if (currentQuestionIndex < shuffledQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
     } else {
-      setSelectedSet(null);
+      setShowSummary(true);
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-kiddykode-green text-white';
-      case 'intermediate': return 'bg-kiddykode-yellow text-kiddykode-blue-dark';
-      case 'advanced': return 'bg-kiddykode-purple text-white';
-      default: return 'bg-muted';
-    }
+  const handleRetry = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setShowResult(false);
+    setAnswers([]);
+    setShowSummary(false);
+    setShuffleKey(prev => prev + 1);
   };
 
-  const getOptionStyle = (index: number) => {
-    if (!showResult) {
-      return selectedAnswer === index 
-        ? 'border-primary bg-primary/10' 
-        : 'border-border hover:border-primary/50';
-    }
-    
-    if (index === currentQuestion?.correctIndex) {
-      return 'border-kiddykode-green bg-kiddykode-green/20';
-    }
-    if (index === selectedAnswer && index !== currentQuestion?.correctIndex) {
-      return 'border-red-500 bg-red-500/20';
-    }
-    return 'border-border opacity-50';
+  const handleBack = () => {
+    setSelectedSet(null);
+    setShowSummary(false);
   };
 
+  // Group sets by difficulty
+  const groupedSets = useMemo(() => {
+    const groups: Record<string, typeof mcqSets> = {
+      beginner: [],
+      intermediate: [],
+      advanced: [],
+    };
+    mcqSets.forEach(set => {
+      groups[set.difficulty].push(set);
+    });
+    return groups;
+  }, []);
+
+  const difficultyLabels = {
+    beginner: isFrench ? '🌱 Débutant' : '🌱 Beginner',
+    intermediate: isFrench ? '🌿 Intermédiaire' : '🌿 Intermediate',
+    advanced: isFrench ? '🌳 Avancé' : '🌳 Advanced',
+  };
+
+  // Set Selection View
   if (!selectedSet) {
     return (
       <div className="min-h-screen bg-background">
@@ -111,70 +162,86 @@ const MCQTest = () => {
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
                 <HelpCircle className="w-6 h-6" />
-                {isFrench ? 'Quiz QCM' : 'MCQ Quiz'} ❓
+                {isFrench ? 'Quiz QCM' : 'MCQ Quiz'} 📝
               </h1>
               <p className="text-sm opacity-80">
-                {isFrench ? 'Teste tes connaissances!' : 'Test your knowledge!'}
+                {isFrench ? 'Teste tes connaissances avec des questions de code!' : 'Test your knowledge with code-based questions!'}
               </p>
             </div>
           </div>
         </header>
 
         <section className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mcqSets.map((set, index) => {
-              const progressPercent = getSetProgress(set.id);
-              const isComplete = progressPercent === 100;
-
-              return (
-                <motion.div
-                  key={set.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card 
-                    className="cursor-pointer hover:shadow-lg transition-shadow relative overflow-hidden"
-                    onClick={() => handleStartSet(set.id)}
-                  >
-                    <div className="absolute bottom-0 left-0 h-1 bg-primary/30 w-full" />
-                    <div
-                      className="absolute bottom-0 left-0 h-1 bg-primary transition-all"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                    
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                          ❓ {isFrench ? set.titleFr : set.title}
-                        </CardTitle>
-                        {isComplete && <CheckCircle className="w-5 h-5 text-kiddykode-green" />}
-                      </div>
-                      <Badge className={getDifficultyColor(set.difficulty)}>
-                        {set.difficulty}
-                      </Badge>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground text-sm">
-                        {isFrench ? set.descriptionFr : set.description}
-                      </p>
-                      <div className="mt-4 flex items-center justify-between text-sm">
-                        <span>{set.questions.length} {isFrench ? 'questions' : 'questions'}</span>
-                        {progressPercent > 0 && (
-                          <span className="text-primary font-semibold">{progressPercent}%</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </div>
+          {Object.entries(groupedSets).map(([difficulty, sets]) => (
+            sets.length > 0 && (
+              <div key={difficulty} className="mb-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  {difficultyLabels[difficulty as keyof typeof difficultyLabels]}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sets.map((set, index) => {
+                    const progressPercent = getSetProgress(set.id);
+                    return (
+                      <MCQSetCard
+                        key={set.id}
+                        id={set.id}
+                        title={isFrench ? set.titleFr : set.title}
+                        description={isFrench ? set.descriptionFr : set.description}
+                        difficulty={set.difficulty}
+                        questionCount={set.questions.length}
+                        progressPercent={progressPercent}
+                        isComplete={progressPercent === 100}
+                        onClick={() => handleStartSet(set.id)}
+                        index={index}
+                        isFrench={isFrench}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          ))}
         </section>
       </div>
     );
   }
 
+  // Summary View
+  if (showSummary && currentSet) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="bg-kiddykode-yellow text-kiddykode-blue-dark p-4">
+          <div className="container mx-auto flex items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleBack}
+              className="p-2 rounded-xl hover:bg-white/20 transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </motion.button>
+            <div>
+              <h1 className="text-xl font-bold">
+                {isFrench ? 'Résultats' : 'Results'}
+              </h1>
+            </div>
+          </div>
+        </header>
+
+        <section className="container mx-auto px-4 py-8">
+          <MCQSummary
+            answers={answers}
+            totalQuestions={shuffledQuestions.length}
+            setTitle={isFrench ? currentSet.titleFr : currentSet.title}
+            onRetry={handleRetry}
+            onBack={handleBack}
+          />
+        </section>
+      </div>
+    );
+  }
+
+  // Quiz View
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-kiddykode-yellow text-kiddykode-blue-dark p-4">
@@ -182,26 +249,26 @@ const MCQTest = () => {
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => setSelectedSet(null)}
+            onClick={handleBack}
             className="p-2 rounded-xl hover:bg-white/20 transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
           </motion.button>
           <div className="flex-1">
-            <h1 className="text-xl font-bold">
+            <h1 className="text-lg font-bold">
               {isFrench ? currentSet?.titleFr : currentSet?.title}
             </h1>
-            <Progress 
-              value={((currentQuestionIndex + 1) / (currentSet?.questions.length || 1)) * 100} 
+            <Progress
+              value={((currentQuestionIndex + 1) / shuffledQuestions.length) * 100}
               className="mt-2 h-2"
             />
           </div>
           <div className="text-right">
-            <span className="text-sm">
-              {currentQuestionIndex + 1} / {currentSet?.questions.length}
+            <span className="text-sm font-semibold">
+              {currentQuestionIndex + 1} / {shuffledQuestions.length}
             </span>
             <div className="text-xs opacity-70">
-              {isFrench ? 'Score:' : 'Score:'} {score}
+              {isFrench ? 'Score:' : 'Score:'} {answers.filter(a => a.correct).length}
             </div>
           </div>
         </div>
@@ -216,77 +283,21 @@ const MCQTest = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
             >
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {isFrench ? currentQuestion.questionFr : currentQuestion.question}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {(isFrench ? currentQuestion.optionsFr : currentQuestion.options).map((option, index) => (
-                    <motion.div
-                      key={index}
-                      whileHover={!showResult ? { scale: 1.02 } : {}}
-                      whileTap={!showResult ? { scale: 0.98 } : {}}
-                      onClick={() => handleSelectAnswer(index)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${getOptionStyle(index)}`}
-                    >
-                      <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-sm">
-                        {String.fromCharCode(65 + index)}
-                      </span>
-                      <span className="flex-1">{option}</span>
-                      {showResult && index === currentQuestion.correctIndex && (
-                        <CheckCircle className="w-5 h-5 text-kiddykode-green" />
-                      )}
-                      {showResult && index === selectedAnswer && index !== currentQuestion.correctIndex && (
-                        <XCircle className="w-5 h-5 text-red-500" />
-                      )}
-                    </motion.div>
-                  ))}
-
-                  {showResult && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`p-4 rounded-xl ${
-                        selectedAnswer === currentQuestion.correctIndex
-                          ? 'bg-kiddykode-green/20'
-                          : 'bg-red-500/20'
-                      }`}
-                    >
-                      <p className="font-semibold mb-1">
-                        {selectedAnswer === currentQuestion.correctIndex
-                          ? (isFrench ? '🎉 Correct!' : '🎉 Correct!')
-                          : (isFrench ? '❌ Pas tout à fait...' : '❌ Not quite...')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {isFrench ? currentQuestion.explanationFr : currentQuestion.explanation}
-                      </p>
-                    </motion.div>
-                  )}
-
-                  <div className="flex gap-3 pt-4">
-                    {!showResult && (
-                      <Button 
-                        onClick={handleSubmitAnswer}
-                        disabled={selectedAnswer === null}
-                        className="flex-1"
-                      >
-                        {isFrench ? 'Vérifier' : 'Check Answer'}
-                      </Button>
-                    )}
-                    
-                    {showResult && (
-                      <Button onClick={handleNextQuestion} className="flex-1 flex items-center gap-2">
-                        {currentQuestionIndex < (currentSet?.questions.length || 1) - 1 
-                          ? (isFrench ? 'Suivant' : 'Next')
-                          : (isFrench ? 'Terminer' : 'Finish')}
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <MCQQuestionCard
+                question={isFrench ? currentQuestion.questionFr : currentQuestion.question}
+                code={currentQuestion.code}
+                options={isFrench ? currentQuestion.optionsFr : currentQuestion.options}
+                correctIndex={currentQuestion.correctIndex}
+                explanation={isFrench ? currentQuestion.explanationFr : currentQuestion.explanation}
+                requiresTerminal={currentQuestion.requiresTerminal}
+                selectedAnswer={selectedAnswer}
+                showResult={showResult}
+                onSelectAnswer={handleSelectAnswer}
+                onSubmit={handleSubmitAnswer}
+                onNext={handleNextQuestion}
+                isLastQuestion={currentQuestionIndex === shuffledQuestions.length - 1}
+                isFrench={isFrench}
+              />
             </motion.div>
           )}
         </AnimatePresence>

@@ -15,10 +15,14 @@ import DebuggingTest from "./pages/DebuggingTest";
 import FlashCardsTest from "./pages/FlashCardsTest";
 import MCQTest from "./pages/MCQTest";
 import CreateMode from "./pages/CreateMode";
+import EcoHelperProject from "./pages/EcoHelperProject";
+import SupermarketProject from "./pages/SupermarketProject";
 import StoryMode from "./pages/StoryMode";
 import StoryMission from "./pages/StoryMission";
 import ProgressPage from "./pages/ProgressPage";
 import ParentDashboard from "./pages/ParentDashboard";
+import ProjectFeedback from "./pages/ProjectFeedback";
+import ProjectCertificate from "./pages/ProjectCertificate";
 import NotFound from "./pages/NotFound";
 import LearnCourseDetail from "./pages/LearnCourseDetail";
 import ChallengeLab from "./pages/ChallengeLab";
@@ -38,6 +42,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<SplashScreen />} />
           <Route path="/auth" element={<AuthScreen />} />
+<<<<<<< HEAD
           
           <Route path="/dashboard" element={
             <ProtectedRoute requiredRole="EXPLORER">
@@ -111,6 +116,23 @@ const App = () => (
             </ProtectedRoute>
           } />
           
+=======
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/learn" element={<LearnMode />} />
+          <Route path="/learn/:tutorialId" element={<TutorialLesson />} />
+          <Route path="/test" element={<TestMode />} />
+          <Route path="/test/debugging" element={<DebuggingTest />} />
+          <Route path="/test/flashcards" element={<FlashCardsTest />} />
+          <Route path="/test/mcq" element={<MCQTest />} />
+          <Route path="/create" element={<CreateMode />} />
+          <Route path="/create/eco-helper" element={<EcoHelperProject />} />
+          <Route path="/create/supermarket" element={<SupermarketProject />} />
+          <Route path="/stories" element={<StoryMode />} />
+          <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/parent" element={<ParentDashboard />} />
+          <Route path="/project-feedback" element={<ProjectFeedback />} />
+          <Route path="/project-certificate" element={<ProjectCertificate />} />
+>>>>>>> 2e25b6023bad23dec66b91991990a93fc7331f96
           <Route path="*" element={<NotFound />} />
         </Routes>
         <DevIdentitySwitcher />
