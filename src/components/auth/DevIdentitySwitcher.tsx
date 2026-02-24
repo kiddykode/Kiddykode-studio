@@ -47,7 +47,7 @@ export const DevIdentitySwitcher: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-[9999]">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="rounded-full shadow-lg bg-white/80 backdrop-blur-sm border-primary/20 hover:bg-white">
+          <Button variant="outline" size="icon" className="rounded-full shadow-lg bg-white/80 backdrop-blur-sm border-primary/20 hover:bg-white flex items-center justify-center">
             <Shield className="h-5 w-5 text-primary" />
           </Button>
         </DropdownMenuTrigger>
