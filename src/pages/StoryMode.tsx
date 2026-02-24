@@ -71,7 +71,7 @@ const StoryMode = () => {
                     ? 'bg-card cursor-pointer shadow-medium hover:shadow-lg'
                     : 'bg-card/50 cursor-not-allowed'
                 }`}
-                onClick={() => unlocked && navigate(`/stories/${story.id}`)}
+                onClick={() => unlocked && navigate(`/stories/${story.id}/lessons/mission-1`)}
               >
                 {/* Lock overlay */}
                 {!unlocked && (

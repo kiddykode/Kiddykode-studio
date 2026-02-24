@@ -27,11 +27,11 @@ const Dashboard = () => {
     emoji: '📚'
   }, {
     id: 'test',
-    title: t('testMode', 'Test Mode'),
-    description: t('testModeDesc', 'Put your skills to the test!'),
+    title: t('challengeLab', 'Challenge Lab'),
+    description: t('challengeLabDesc', 'Apply logic in live simulations!'),
     icon: FlaskConical,
-    color: 'bg-red-500',
-    path: '/test',
+    color: 'bg-kiddykode-blue-dark',
+    path: '/challenges',
     emoji: '🧪'
   }, {
     id: 'create',

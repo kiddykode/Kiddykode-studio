@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { User, Users, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useProgressStore } from '@/stores/progressStore';
+import { useAuthStore } from '@/stores/authStore';
 import KiddyKodeBrand from '@/components/KiddyKodeBrand';
 import mascot from '@/assets/mascot.png';
 
@@ -11,19 +12,40 @@ const AuthScreen = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setUserName, setIsGuest } = useProgressStore();
+  const setUser = useAuthStore((state) => state.setUser);
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
 
   const handleGuestMode = () => {
     setIsGuest(true);
-    setUserName('Young Coder');
+    const guestName = 'Young Coder';
+    setUserName(guestName);
+    
+    // Also update AuthStore so ProtectedRoute doesn't redirect back
+    setUser({
+      id: 'guest-' + Math.random().toString(36).substr(2, 9),
+      name: guestName,
+      email: 'guest@kiddykode.com',
+      role: 'EXPLORER' // Give guest base explorer access to see the dashboard
+    });
+    
     navigate('/dashboard');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsGuest(false);
-    setUserName(name || 'Young Coder');
+    const finalName = name || 'Young Coder';
+    setUserName(finalName);
+
+    // Mock authentication for now
+    setUser({
+      id: 'user-' + Math.random().toString(36).substr(2, 9),
+      name: finalName,
+      email: 'user@example.com',
+      role: 'EXPLORER'
+    });
+
     navigate('/dashboard');
   };
 
