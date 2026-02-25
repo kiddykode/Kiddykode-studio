@@ -94,3 +94,25 @@ npx prisma@6 db push --schema=server/prisma/schema.prisma
     // export const config = { runtime: 'edge' };
     ```
 2.  **Ensure the Hono app is exported** and handled correctly for Node.js (this is the default behavior if the edge config is removed).
+
+---
+
+## 7. Frontend: API Requests return 404 despite correct backend routing
+
+**Issue**: Frontend fetch calls to `/api/...` fail with 404 in production, even though the same routes work locally and the backend is correctly configured on Vercel.
+
+**Cause**: Inconsistent or incorrect API URL construction in the frontend. Using `window.location.origin` with a manually concatenated path or missing environment variables can lead to routing mismatches or hardcoded local URLs being called in production.
+
+**Solution**: Centralize API URL construction using a robust utility that handles environment variables and trailing slashes.
+
+1.  **Create a utility** (e.g., `src/lib/api.ts`):
+    ```typescript
+    export const getApiUrl = (path: string): string => {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+      if (!baseUrl) return `/${cleanPath}`;
+      const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+      return `${cleanBaseUrl}/${cleanPath}`;
+    };
+    ```
+2.  **Refactor all fetch calls** to use this utility, ensuring consistency across all pages.

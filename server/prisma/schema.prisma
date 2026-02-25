@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,40 +8,21 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────────
-enum UserRole {
-  GUEST
-  EXPLORER
-  BUILDER
-  CREATOR_ELITE
-  FACILITATOR
-  ADMIN
-}
-
-enum SubscriptionStatus {
-  FREE
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-}
-
-// ─── Models ──────────────────────────────────────────────
 model User {
-  id                String             @id @default(cuid())
-  email             String             @unique
-  name              String?
-  avatarUrl         String?
-  role              UserRole           @default(EXPLORER)
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  name               String?
+  avatarUrl          String?
+  role               UserRole           @default(EXPLORER)
   subscriptionStatus SubscriptionStatus @default(FREE)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-
-  sessions          Session[]
-  progress          Progress[]
-  createdContent    Content[]          @relation("creator")
-  facilitatedGroups StudentGroup[]
-  submissions       Submission[]
-  userBadges        UserBadge[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  createdContent     Content[]          @relation("creator")
+  progress           Progress[]
+  sessions           Session[]
+  facilitatedGroups  StudentGroup[]
+  submissions        Submission[]
+  userBadges         UserBadge[]
 
   @@map("users")
 }
@@ -61,29 +39,28 @@ model Session {
 }
 
 model Progress {
-  id          String   @id @default(cuid())
-  userId      String
-  lessonId    String
-  completed   Boolean  @default(false)
-  score       Int?
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  lessonId  String
+  completed Boolean  @default(false)
+  score     Int?
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lessonId])
   @@map("progress")
 }
 
-// Deprecated: Use Course/Module/Lesson/Phase instead. Keeping for migration fallback.
 model Content {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  type        String   // "lesson" | "story" | "challenge"
+  id           String   @id @default(cuid())
+  title        String
+  slug         String   @unique
+  type         String
   tierRequired UserRole @default(EXPLORER)
-  creatorId   String
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  creator     User     @relation("creator", fields: [creatorId], references: [id])
+  creatorId    String
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  creator      User     @relation("creator", fields: [creatorId], references: [id])
 
   @@map("content")
 }
@@ -92,77 +69,72 @@ model StudentGroup {
   id            String   @id @default(cuid())
   name          String
   facilitatorId String
-  facilitator   User     @relation(fields: [facilitatorId], references: [id])
   createdAt     DateTime @default(now())
+  facilitator   User     @relation(fields: [facilitatorId], references: [id])
 
   @@map("student_groups")
 }
 
 model Course {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  type        String   // "STORY", "LEARN", "TEST", "CREATE"
-  thumbnail   String?
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  type         String
+  thumbnail    String?
   tierRequired UserRole @default(EXPLORER)
-  createdAt   DateTime @default(now())
-  
-  modules     Module[]
-  badges      Badge[]
+  createdAt    DateTime @default(now())
+  badges       Badge[]
+  modules      Module[]
 
   @@map("courses")
 }
 
 model Module {
-  id          String   @id @default(cuid())
-  courseId    String
-  title       String
-  order       Int
-  
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons     Lesson[]
+  id       String   @id @default(cuid())
+  courseId String
+  title    String
+  order    Int
+  lessons  Lesson[]
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@map("modules")
 }
 
 model Lesson {
-  id          String   @id @default(cuid())
-  moduleId    String
-  title       String
-  order       Int
-  
-  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  phases      Phase[]
+  id       String  @id @default(cuid())
+  moduleId String
+  title    String
+  order    Int
+  module   Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  phases   Phase[]
 
   @@map("lessons")
 }
 
 model Phase {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   lessonId    String
-  type        StoryPhaseType // STORY | LOGIC | BUILD | IMPROVE | PRESENT
+  type        StoryPhaseType
   title       String
   order       Int
-  content     Json           // Video URLs, instructions, blueprint data
-  
-  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  content     Json
+  lesson      Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   submissions Submission[]
 
   @@map("phases")
 }
 
 model Submission {
-  id          String   @id @default(cuid())
-  userId      String
-  phaseId     String
-  fileUrl     String?  // Planning Worksheet, Code file, etc.
-  videoUrl    String?  // Presentation video
-  content     String?  @db.Text
-  feedback    String?  @db.Text
-  createdAt   DateTime @default(now())
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phase       Phase    @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  phaseId   String
+  fileUrl   String?
+  videoUrl  String?
+  content   String?
+  feedback  String?
+  createdAt DateTime @default(now())
+  phase     Phase    @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("submissions")
 }
@@ -171,10 +143,9 @@ model Badge {
   id          String      @id @default(cuid())
   name        String
   description String?
-  icon        String?     // Emoji or URL
-  courseId    String?     // Optional, if badge is specific to a course
+  icon        String?
+  courseId    String?
   createdAt   DateTime    @default(now())
-
   course      Course?     @relation(fields: [courseId], references: [id])
   userBadges  UserBadge[]
 
@@ -182,16 +153,31 @@ model Badge {
 }
 
 model UserBadge {
-  id        String   @id @default(cuid())
-  userId    String
-  badgeId   String
-  earnedAt  DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, badgeId])
   @@map("user_badges")
+}
+
+enum UserRole {
+  GUEST
+  EXPLORER
+  BUILDER
+  CREATOR_ELITE
+  FACILITATOR
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  FREE
+  ACTIVE
+  CANCELLED
+  PAST_DUE
 }
 
 enum StoryPhaseType {
@@ -200,12 +186,10 @@ enum StoryPhaseType {
   BUILD
   IMPROVE
   PRESENT
-  // Challenge Lab Phases
   SCENARIO
   REQUIREMENTS
   CHALLENGE_EDITOR
   FEEDBACK
-  // Create Mode Phases
   PROPOSAL
   FACILITATOR_REVIEW
   MILESTONE

@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { coursesRouter } from './routes/courses';
 import { submissionsRouter } from './routes/submissions';
+import { lessonsRouter } from './routes/lessons';
+
 
 const app = new Hono().basePath('/api');
 
@@ -25,6 +27,8 @@ app.get('/', (c) => {
 
 // Route Modules
 app.route('/courses', coursesRouter);
+app.route('/lessons', lessonsRouter);
 app.route('/submissions', submissionsRouter);
+
 
 export default app;
