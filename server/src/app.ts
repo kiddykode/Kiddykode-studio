@@ -4,7 +4,7 @@ import { logger } from 'hono/logger';
 import { coursesRouter } from './routes/courses';
 import { submissionsRouter } from './routes/submissions';
 
-const app = new Hono();
+const app = new Hono().basePath('/api');
 
 // Middleware
 app.use('*', logger());
@@ -14,17 +14,17 @@ app.use('*', cors({
 }));
 
 // Health Check
-app.get('/api/health', (c) => {
+app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Root path for the API base
-app.get('/api', (c) => {
+app.get('/', (c) => {
   return c.text('KiddyKode Studio API - Online');
 });
 
 // Route Modules
-app.route('/api/courses', coursesRouter);
-app.route('/api/submissions', submissionsRouter);
+app.route('/courses', coursesRouter);
+app.route('/submissions', submissionsRouter);
 
 export default app;
