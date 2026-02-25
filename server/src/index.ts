@@ -9,7 +9,7 @@ import { submissionsRouter } from './routes/submissions';
 
 dotenv.config();
 
-const app = new Hono();
+export const app = new Hono();
 
 // Middleware
 app.use('*', logger());
