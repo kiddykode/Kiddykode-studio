@@ -14,6 +14,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useRole } from '@/hooks/useRole';
 import { Button } from '@/components/ui/button';
+import { getApiUrl } from '@/lib/api';
 
 const CreateMode = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const CreateMode = () => {
   const { data: projects, isLoading } = useQuery({
     queryKey: ['create-projects'],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses?type=CREATE`);
+      const res = await fetch(getApiUrl(`/api/courses?type=CREATE`));
       if (!res.ok) throw new Error('Failed to fetch projects');
       return res.json();
     }

@@ -14,6 +14,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useRole } from '@/hooks/useRole';
 import { Button } from '@/components/ui/button';
+import { getApiUrl } from '@/lib/api';
 
 const ChallengeLab = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const ChallengeLab = () => {
   const { data: challenges, isLoading } = useQuery({
     queryKey: ['challenges'],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses?type=CHALLENGE`);
+      const res = await fetch(getApiUrl(`/api/courses?type=CHALLENGE`));
       if (!res.ok) throw new Error('Failed to fetch challenges');
       return res.json();
     }

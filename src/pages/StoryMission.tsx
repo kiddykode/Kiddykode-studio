@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useRole } from '@/hooks/useRole';
 import { toast } from 'sonner';
+import { getApiUrl } from '@/lib/api';
 
 const StoryMission = () => {
   const { storyId, courseId, lessonId } = useParams();
@@ -31,7 +32,7 @@ const StoryMission = () => {
   const { data: lesson, isLoading } = useQuery({
     queryKey: ['lesson', lessonId],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/lessons/${lessonId}`);
+      const res = await fetch(getApiUrl(`/api/lessons/${lessonId}`));
       if (!res.ok) throw new Error('Failed to fetch lesson');
       return res.json();
     }
@@ -42,7 +43,7 @@ const StoryMission = () => {
     queryKey: ['course-context', storyId || courseId],
     queryFn: async () => {
       const id = storyId || courseId;
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses/${id}`);
+      const res = await fetch(getApiUrl(`/api/courses/${id}`));
       return res.json();
     },
     enabled: !!(storyId || courseId)
@@ -50,7 +51,7 @@ const StoryMission = () => {
 
   const submitPhase = useMutation({
     mutationFn: async ({ phaseId, content }: { phaseId: string, content: any }) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions`, {
+      const res = await fetch(getApiUrl(`/api/submissions`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phaseId, content })

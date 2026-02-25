@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useRole } from '@/hooks/useRole';
+import { getApiUrl } from '@/lib/api';
 
 const LearnCourseDetail = () => {
   const { courseId } = useParams();
@@ -26,7 +27,7 @@ const LearnCourseDetail = () => {
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses/${courseId}`);
+      const res = await fetch(getApiUrl(`/api/courses/${courseId}`));
       if (!res.ok) throw new Error('Failed to fetch course');
       return res.json();
     }

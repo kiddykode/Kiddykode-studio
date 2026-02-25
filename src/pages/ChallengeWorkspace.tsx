@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useRole } from '@/hooks/useRole';
 import { toast } from 'sonner';
+import { getApiUrl } from '@/lib/api';
 
 const ChallengeWorkspace = () => {
   const { challengeId } = useParams();
@@ -33,7 +34,7 @@ const ChallengeWorkspace = () => {
   const { data: challenge, isLoading } = useQuery({
     queryKey: ['challenge', challengeId],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses/${challengeId}`);
+      const res = await fetch(getApiUrl(`/api/courses/${challengeId}`));
       if (!res.ok) throw new Error('Failed to fetch challenge');
       return res.json();
     }
@@ -59,7 +60,7 @@ const ChallengeWorkspace = () => {
 
   const submitChallenge = useMutation({
     mutationFn: async (content: any) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions`, {
+      const res = await fetch(getApiUrl(`/api/submissions`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phaseId: currentPhase.id, content })

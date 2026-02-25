@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CheckCircle, Lock, Award, BookOpen, Star } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useRole } from '@/hooks/useRole';
+import { getApiUrl } from '@/lib/api';
 
 const LearnMode = () => {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ const LearnMode = () => {
   const { data: courses, isLoading: coursesLoading } = useQuery({
     queryKey: ['courses', 'LEARN'],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/courses?type=LEARN`);
+      const res = await fetch(getApiUrl(`/api/courses?type=LEARN`));
       if (!res.ok) throw new Error('Failed to fetch courses');
       return res.json();
     }
