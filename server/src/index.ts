@@ -35,7 +35,9 @@ app.route('/api/submissions', submissionsRouter);
 const port = Number(process.env.PORT) || 3001;
 console.log(`Server is running on port ${port}`);
 
-serve({
-  fetch: app.fetch,
-  port,
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+}

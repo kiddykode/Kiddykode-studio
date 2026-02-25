@@ -78,3 +78,20 @@ npx prisma@6 db push --schema=server/prisma/schema.prisma
       ]
     }
     ```
+
+---
+
+## 6. Vercel: Edge Function referencing unsupported modules (`dotenv`, `fs`, etc.)
+
+**Issue**: Deployment fails with an error stating the Edge Function references unsupported modules like `dotenv` or `fs`.
+
+**Cause**: The API bridge in `api/index.ts` was configured to use the `edge` runtime, which does not support Node.js built-ins or certain third-party modules that rely on them.
+
+**Solution**: Switch the Vercel Function to the standard Node.js runtime.
+
+1.  **Modify `api/index.ts`** to remove the Edge runtime configuration:
+    ```typescript
+    // REMOVE THIS:
+    // export const config = { runtime: 'edge' };
+    ```
+2.  **Ensure the Hono app is exported** and handled correctly for Node.js (this is the default behavior if the edge config is removed).
