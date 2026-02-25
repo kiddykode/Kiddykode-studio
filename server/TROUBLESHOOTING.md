@@ -60,23 +60,22 @@ npx prisma@6 db push --schema=server/prisma/schema.prisma
 
 **Solution**: Add a `vercel.json` configuration and an `api/index.ts` bridge file to correctly route requests.
 
-1.  **Modify `server/src/index.ts`** to export the Hono `app`:
+1.  **Refactor for Deployment Isolation**: Split the app definition from the server entry point.
+2.  **Create `server/src/app.ts`**:
     ```typescript
-    export const app = new Hono();
+    const app = new Hono().basePath('/api');
+    app.route('/courses', coursesRouter);
+    export default app;
     ```
-2.  **Create `api/index.ts`** (root folder) to bridge Vercel and Hono:
+3.  **Modify `api/index.ts`** to use the isolated app:
     ```typescript
     import { handle } from 'hono/vercel';
-    import { app } from '../server/src/index';
+    import app from '../server/src/app';
     export default handle(app);
     ```
-3.  **Create `vercel.json`** (root folder) to add rewrites:
+4.  **Create `vercel.json`** to rewrite all requests:
     ```json
-    {
-      "rewrites": [
-        { "source": "/api/(.*)", "destination": "/api/index.ts" }
-      ]
-    }
+    { "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index.ts" }] }
     ```
 
 ---
