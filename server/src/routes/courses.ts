@@ -71,7 +71,7 @@ router.get('/:id', async (c) => {
   return c.json(course);
 });
 
-});
 
 export { router as coursesRouter };
+
 
