@@ -116,3 +116,30 @@ npx prisma@6 db push --schema=server/prisma/schema.prisma
     };
     ```
 2.  **Refactor all fetch calls** to use this utility, ensuring consistency across all pages.
+
+---
+
+## 8. API: 404 Not Found on `/api/lessons/:id` (Route Mismatch)
+
+**Issue**: Fetching lesson data results in a 404 error, even though the lesson exists in the database.
+
+**Cause**: A mismatch between the frontend's expected path (`/api/lessons/:id`) and the backend's defined path (`/api/courses/lessons/:id`). The backend route was nested under the courses router incorrectly.
+
+**Solution**: Move the lesson-specific routes to a dedicated top-level router.
+1.  **Create `server/src/routes/lessons.ts`** and define the `/:id` route there.
+2.  **Register the router in `app.ts`**:
+    ```typescript
+    app.route('/lessons', lessonsRouter);
+    ```
+3.  **Remove the nested route** from `courses.ts`.
+
+---
+
+## 9. TypeScript: `error TS1128: Declaration or statement expected` (Syntax Error)
+
+**Issue**: The server fails to compile with a TypeScript syntax error after refactoring routes.
+
+**Cause**: Leaving a stray closing brace or parenthesis (e.g., `});`) after deleting a route block. This often happens during manual code replacement or incomplete diff applications.
+
+**Solution**: Carefully inspect the file for balance of braces and parentheses. In `courses.ts`, ensure that all `router.get` blocks are correctly closed and that no extra `});` remain at the end of the route definitions.
+

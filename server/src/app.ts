@@ -4,6 +4,8 @@ import { logger } from 'hono/logger';
 import { coursesRouter } from './routes/courses';
 import { submissionsRouter } from './routes/submissions';
 import { lessonsRouter } from './routes/lessons';
+import { mockAuthMiddleware } from './auth/session';
+
 
 
 const app = new Hono().basePath('/api');
@@ -14,6 +16,10 @@ app.use('*', cors({
   origin: (origin) => origin, // Allow all origins for the API to avoid CORS issues during debug
   credentials: true,
 }));
+
+// Mock Auth Middleware for Development
+app.use('*', mockAuthMiddleware);
+
 
 // Health Check
 app.get('/health', (c) => {
