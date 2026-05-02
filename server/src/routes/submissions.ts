@@ -1,20 +1,23 @@
 import { Hono } from 'hono';
 import prisma from '../lib/prisma';
-import { UserRole } from '../auth/middleware';
+import { type AppVariables, requireAuth } from '../auth/middleware';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 /**
  * POST /api/submissions
- * Create a new submission for a specific phase
+ * Create a new submission for a specific phase.
+ * Requires authentication.
  */
-router.post('/', async (c) => {
-  const user = (c as any).get('user') as { id: string } | undefined;
-  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+router.post('/', requireAuth, async (c) => {
+  const user = c.get('user')!; // guaranteed by requireAuth
 
-  const { phaseId, content, fileUrl, videoUrl } = await c.req.json();
+  const body = await c.req.json();
+  const { phaseId, content, fileUrl, videoUrl } = body;
 
-  if (!phaseId) return c.json({ error: 'phaseId is required' }, 400);
+  if (!phaseId) {
+    return c.json({ error: 'phaseId is required' }, 400);
+  }
 
   const submission = await prisma.submission.create({
     data: {
@@ -31,27 +34,30 @@ router.post('/', async (c) => {
 
 /**
  * GET /api/submissions/:id
- * Get details of a specific submission
+ * Get details of a specific submission.
+ * Only the owner, a Facilitator, or an Admin can view.
  */
-router.get('/:id', async (c) => {
+router.get('/:id', requireAuth, async (c) => {
   const id = c.req.param('id');
-  const user = (c as any).get('user') as { id: string, role: string } | undefined;
+  const user = c.get('user')!;
 
   const submission = await prisma.submission.findUnique({
     where: { id },
     include: {
       phase: {
-        include: {
-          lesson: true
-        }
-      }
-    }
+        include: { lesson: true },
+      },
+    },
   });
 
   if (!submission) return c.json({ error: 'Submission not found' }, 404);
 
-  // Authorization: Only owner or Facilitator/Admin can view
-  if (submission.userId !== user?.id && user?.role !== 'FACILITATOR' && user?.role !== 'ADMIN') {
+  const canView =
+    submission.userId === user.id ||
+    user.role === 'FACILITATOR' ||
+    user.role === 'ADMIN';
+
+  if (!canView) {
     return c.json({ error: 'Forbidden' }, 403);
   }
 
