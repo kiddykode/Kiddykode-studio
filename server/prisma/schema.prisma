@@ -8,21 +8,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Better Auth core models
+// Fields required by better-auth are marked with a comment.
+// ─────────────────────────────────────────────────────────────────────────────
+
 model User {
   id                 String             @id @default(cuid())
   email              String             @unique
+  emailVerified      Boolean            @default(false) // required by better-auth
   name               String?
-  avatarUrl          String?
+  image              String? // better-auth uses "image" (was avatarUrl)
+  avatarUrl          String? // kept for backwards compat
   role               UserRole           @default(EXPLORER)
   subscriptionStatus SubscriptionStatus @default(FREE)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-  createdContent     Content[]          @relation("creator")
-  progress           Progress[]
-  sessions           Session[]
-  facilitatedGroups  StudentGroup[]
-  submissions        Submission[]
-  userBadges         UserBadge[]
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  createdContent    Content[]      @relation("creator")
+  progress          Progress[]
+  facilitatedGroups StudentGroup[]
+  submissions       Submission[]
+  userBadges        UserBadge[]
 
   @@map("users")
 }
@@ -32,11 +42,50 @@ model Session {
   userId    String
   token     String   @unique
   expiresAt DateTime
+  ipAddress String? // required by better-auth
+  userAgent String? // required by better-auth
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt // required by better-auth
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
+
+/// OAuth / credential accounts — required by better-auth
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+/// Email verification / password-reset tokens — required by better-auth
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App-specific models
+// ─────────────────────────────────────────────────────────────────────────────
 
 model Progress {
   id        String   @id @default(cuid())
@@ -163,6 +212,10 @@ model UserBadge {
   @@unique([userId, badgeId])
   @@map("user_badges")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
 
 enum UserRole {
   GUEST

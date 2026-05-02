@@ -2,52 +2,91 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { User, Users, Mail, Lock, ArrowRight } from 'lucide-react';
+import { User, Users, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useProgressStore } from '@/stores/progressStore';
 import { useAuthStore } from '@/stores/authStore';
+import { signIn, signUp } from '@/lib/authClient';
 import KiddyKodeBrand from '@/components/KiddyKodeBrand';
 import mascot from '@/assets/mascot.png';
+import { toast } from 'sonner';
 
 const AuthScreen = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { setUserName, setIsGuest } = useProgressStore();
   const setUser = useAuthStore((state) => state.setUser);
+
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
+  // ─── Guest mode ────────────────────────────────────────────────────────────
+  // Guest users get a local EXPLORER session without a real account.
   const handleGuestMode = () => {
-    setIsGuest(true);
     const guestName = 'Young Coder';
+    setIsGuest(true);
     setUserName(guestName);
-    
-    // Also update AuthStore so ProtectedRoute doesn't redirect back
     setUser({
-      id: 'guest-' + Math.random().toString(36).substr(2, 9),
+      id: 'guest-' + Math.random().toString(36).substring(2, 9),
       name: guestName,
       email: 'guest@kiddykode.com',
-      role: 'EXPLORER' // Give guest base explorer access to see the dashboard
+      role: 'EXPLORER',
     });
-    
     navigate('/dashboard');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ─── Sign up ───────────────────────────────────────────────────────────────
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsGuest(false);
-    const finalName = name || 'Young Coder';
-    setUserName(finalName);
+    if (!email || !password) return;
 
-    // Mock authentication for now
-    setUser({
-      id: 'user-' + Math.random().toString(36).substr(2, 9),
-      name: finalName,
-      email: 'user@example.com',
-      role: 'EXPLORER'
-    });
-
-    navigate('/dashboard');
+    setIsLoading(true);
+    await signUp.email(
+      {
+        email,
+        password,
+        name: name || 'Young Coder',
+      },
+      {
+        onSuccess: () => {
+          setIsGuest(false);
+          setUserName(name || 'Young Coder');
+          toast.success('Account created! Welcome to KiddyKode 🎉');
+          navigate('/dashboard');
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message ?? 'Sign up failed. Please try again.');
+        },
+      },
+    );
+    setIsLoading(false);
   };
+
+  // ─── Sign in ───────────────────────────────────────────────────────────────
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+
+    setIsLoading(true);
+    await signIn.email(
+      { email, password },
+      {
+        onSuccess: () => {
+          setIsGuest(false);
+          toast.success('Welcome back! 👋');
+          navigate('/dashboard');
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message ?? 'Sign in failed. Check your credentials.');
+        },
+      },
+    );
+    setIsLoading(false);
+  };
+
+  const handleSubmit = isLogin ? handleSignIn : handleSignUp;
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
@@ -146,6 +185,9 @@ const AuthScreen = () => {
                 <input
                   type="email"
                   placeholder={t('email')}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="w-full pl-12 pr-4 py-4 bg-muted rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -155,6 +197,10 @@ const AuthScreen = () => {
                 <input
                   type="password"
                   placeholder={t('password')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
                   className="w-full pl-12 pr-4 py-4 bg-muted rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -163,16 +209,23 @@ const AuthScreen = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-glow-orange flex items-center justify-center gap-2"
+                disabled={isLoading}
+                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-glow-orange flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isLogin ? t('login') : t('signup')}
-                <ArrowRight className="w-5 h-5" />
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    {isLogin ? t('login') : t('signup')}
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </motion.button>
             </form>
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-4 bg-card text-muted-foreground">or</span>
@@ -188,6 +241,12 @@ const AuthScreen = () => {
               <Users className="w-5 h-5" />
               {t('guestMode')}
             </motion.button>
+
+            {!isLogin && (
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                Password must be at least 8 characters.
+              </p>
+            )}
           </div>
         </motion.div>
       </div>

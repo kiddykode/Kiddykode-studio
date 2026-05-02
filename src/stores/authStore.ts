@@ -24,11 +24,11 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       token: null,
-      setUser: (user, token = null) => 
-        set({ 
-          user, 
+      setUser: (user, token = null) =>
+        set({
+          user,
           isAuthenticated: !!user,
-          token: token ?? (user ? null : null) // Keep token if provided, clear if no user
+          token: user ? token : null, // keep token when user is set, clear when logging out
         }),
       clearUser: () => set({ user: null, isAuthenticated: false, token: null }),
     }),

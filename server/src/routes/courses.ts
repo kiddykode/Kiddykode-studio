@@ -1,41 +1,37 @@
 import { Hono } from 'hono';
 import prisma from '../lib/prisma';
-import { requireRole } from '../auth/middleware';
-import { UserRole } from '../auth/middleware';
+import { type AppVariables, type UserRole } from '../auth/middleware';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 /**
  * GET /api/courses
- * List all courses, filtered by type (STORY, LEARN, etc.)
+ * List all courses, optionally filtered by type (STORY, LEARN, CHALLENGE, CREATE).
  */
 router.get('/', async (c) => {
   const type = c.req.query('type');
-  const user = (c as any).get('user') as { role: UserRole } | undefined;
-  
+
   const courses = await prisma.course.findMany({
-    where: {
-      type: type as any,
-    },
+    where: type ? { type } : undefined,
     include: {
       _count: {
-        select: { modules: true }
-      }
+        select: { modules: true },
+      },
     },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   });
 
-  // Filter based on user role (logic for "Explorer: Access to 2 stories only" can be added here)
   return c.json(courses);
 });
 
 /**
  * GET /api/courses/:id
- * Get a full course with modules and lessons
+ * Get a full course with modules and lessons.
+ * Applies content gating for EXPLORER-tier users on LEARN courses.
  */
 router.get('/:id', async (c) => {
   const id = c.req.param('id');
-  
+
   const course = await prisma.course.findUnique({
     where: { id },
     include: {
@@ -43,35 +39,35 @@ router.get('/:id', async (c) => {
         orderBy: { order: 'asc' },
         include: {
           lessons: {
-            orderBy: { order: 'asc' }
-          }
-        }
-      }
-    }
+            orderBy: { order: 'asc' },
+          },
+        },
+      },
+    },
   });
 
   if (!course) return c.json({ error: 'Course not found' }, 404);
 
-  const user = (c as any).get('user') as { role: UserRole } | undefined;
-  const isExplorer = user?.role === 'EXPLORER';
+  const user = c.get('user');
+  const isExplorer = !user || user.role === 'EXPLORER';
 
-  // Apply gating for LEARN courses
+  // Explorers only get the first 2 modules of LEARN courses
   if (course.type === 'LEARN' && isExplorer) {
-    course.modules = course.modules.map((mod, index) => ({
-      ...mod,
-      // Explorer gets only the first 2 modules
-      isLocked: index >= 2,
-      lessons: mod.lessons.map(lesson => ({
-        ...lesson,
-        isLocked: index >= 2
-      }))
-    }));
+    const gated = {
+      ...course,
+      modules: course.modules.map((mod, index) => ({
+        ...mod,
+        isLocked: index >= 2,
+        lessons: mod.lessons.map((lesson) => ({
+          ...lesson,
+          isLocked: index >= 2,
+        })),
+      })),
+    };
+    return c.json(gated);
   }
-  
+
   return c.json(course);
 });
 
-
 export { router as coursesRouter };
-
-
